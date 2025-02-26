@@ -1,36 +1,107 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dev Tracker
+
+A professional accomplishment tracking tool that helps users connect external accounts (GitHub, Bitbucket, Jira, Confluence) and compile their contributions for performance reviews.
+
+## Purpose
+
+Dev Tracker simplifies the process of preparing for mid-year and year-end reviews by automatically aggregating your professional contributions across various platforms. It categorizes these accomplishments according to the five core competencies:
+
+- Be Candid
+- Build Expertise
+- Cultivate Difference
+- Drive Outcomes
+- Develop Others
+
+## Features
+
+- Connect to external platforms (GitHub, Bitbucket, Jira, Confluence)
+- View a unified timeline of contributions across all platforms
+- Automatically categorize contributions by competency
+- Generate customized "brag sheets" for performance reviews
+- Export reports in various formats (PDF, Markdown)
+
+## Tech Stack
+
+- **Frontend**: Next.js, TypeScript, Tailwind CSS, shadcn/ui
+- **Backend**: Node.js, Express
+- **Database**: PostgreSQL
+- **Authentication**: NextAuth.js, OAuth 2.0 for external services
+
+## Project Structure
+
+```
+dev-tracker/
+├── client/                 # Frontend Next.js application
+│   ├── app/                # Next.js App Router
+│   ├── components/         # Reusable UI components
+│   │   └── ui/             # shadcn/ui components
+│   ├── lib/                # Utility functions and shared code
+│   ├── hooks/              # Custom React hooks
+│   ├── types/              # TypeScript type definitions
+│   └── public/             # Static assets
+├── server/                 # Backend Node.js application
+│   ├── config/             # Configuration files
+│   ├── controllers/        # Request handlers
+│   ├── models/             # Database models
+│   ├── routes/             # API routes
+│   ├── services/           # Business logic
+│   └── utils/              # Utility functions
+├── docs/                   # Documentation
+└── features.md             # Detailed feature specifications
+```
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Node.js (v16+)
+- npm or yarn
+- PostgreSQL
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Installation
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Clone the repository:
+   ```
+   git clone https://github.com/yourusername/dev-tracker.git
+   cd dev-tracker
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. Install dependencies:
+   ```
+   # Install server dependencies
+   cd server
+   npm install
 
-## Learn More
+   # Install client dependencies
+   cd ../client
+   npm install
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+3. Set up environment variables:
+   - Create `.env` files in both `client` and `server` directories based on the provided `.env.example` files
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+4. Set up the database:
+   ```
+   # From the server directory
+   npm run db:setup
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+5. Start the development servers:
+   ```
+   # Start the backend server (from server directory)
+   npm run dev
 
-## Deploy on Vercel
+   # Start the frontend server (from client directory)
+   npm run dev
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Development Workflow
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Create a new branch for each feature or bug fix
+2. Write tests for new functionality
+3. Submit a pull request for review
+4. Ensure CI checks pass before merging
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details. 
