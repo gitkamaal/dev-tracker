@@ -1,23 +1,22 @@
 import { Navbar } from "@/components/navbar"
 import { DashboardHeader } from "@/components/dashboard-header"
-import { AccountConnections } from "@/components/account-connections"
 import { DashboardTabs } from "@/components/dashboard-tabs"
 import { CompetencyMapping } from "@/components/competency-mapping"
-import { BragSheetGenerator } from "@/components/brag-sheet-generator"
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background text-foreground">
       <Navbar />
       
-      <main className="container mx-auto p-8">
+      <main className="container mx-auto py-10 px-6 md:px-8">
         <DashboardHeader />
-        <AccountConnections />
-        <DashboardTabs />
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+        <div className="mt-10">
+          <DashboardTabs />
+        </div>
+        
+        <div className="mt-12">
           <CompetencyMapping />
-          <BragSheetGenerator />
         </div>
       </main>
     </div>
