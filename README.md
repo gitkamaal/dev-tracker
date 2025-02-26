@@ -61,12 +61,14 @@ dev-tracker/
 ### Installation
 
 1. Clone the repository:
+
    ```
    git clone https://github.com/yourusername/dev-tracker.git
    cd dev-tracker
    ```
 
 2. Install dependencies:
+
    ```
    # Install server dependencies
    cd server
@@ -81,12 +83,14 @@ dev-tracker/
    - Create `.env` files in both `client` and `server` directories based on the provided `.env.example` files
 
 4. Set up the database:
+
    ```
    # From the server directory
    npm run db:setup
    ```
 
 5. Start the development servers:
+
    ```
    # Start the backend server (from server directory)
    npm run dev
@@ -104,4 +108,4 @@ dev-tracker/
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the LICENSE file for details.
