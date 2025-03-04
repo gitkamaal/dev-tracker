@@ -1,6 +1,6 @@
 # Dev Tracker
 
-A professional accomplishment tracking tool that helps users connect external accounts (GitHub, Bitbucket, Jira, Confluence) and compile their contributions for performance reviews.
+A professional accomplishment tracking tool that helps users connect external accounts (GitHub, Atlassian) and compile their contributions for performance reviews.
 
 ## Purpose
 
@@ -14,7 +14,7 @@ Dev Tracker simplifies the process of preparing for mid-year and year-end review
 
 ## Features
 
-- Connect to external platforms (GitHub, Bitbucket, Jira, Confluence)
+- Connect to external platforms (GitHub, Atlassian - Jira, Confluence, Bitbucket)
 - View a unified timeline of contributions across all platforms
 - Automatically categorize contributions by competency
 - Generate customized "brag sheets" for performance reviews
@@ -23,9 +23,7 @@ Dev Tracker simplifies the process of preparing for mid-year and year-end review
 ## Tech Stack
 
 - **Frontend**: Next.js, TypeScript, Tailwind CSS, shadcn/ui
-- **Backend**: Node.js, Express
-- **Database**: PostgreSQL
-- **Authentication**: NextAuth.js, OAuth 2.0 for external services
+- **Authentication**: OAuth 2.0 for external services
 
 ## Project Structure
 
@@ -56,7 +54,8 @@ dev-tracker/
 
 - Node.js (v16+)
 - npm or yarn
-- PostgreSQL
+- GitHub OAuth App credentials
+- Atlassian OAuth App credentials
 
 ### Installation
 
@@ -70,34 +69,60 @@ dev-tracker/
 2. Install dependencies:
 
    ```
-   # Install server dependencies
-   cd server
    npm install
-
-   # Install client dependencies
-   cd ../client
-   npm install
+   # or
+   yarn install
    ```
 
 3. Set up environment variables:
-   - Create `.env` files in both `client` and `server` directories based on the provided `.env.example` files
+   - Copy the `.env.example` file to `.env.local`:
+     ```
+     cp .env.example .env.local
+     ```
+   - Edit `.env.local` and add your OAuth credentials (see Environment Variables section below)
 
-4. Set up the database:
-
-   ```
-   # From the server directory
-   npm run db:setup
-   ```
-
-5. Start the development servers:
+4. Start the development server:
 
    ```
-   # Start the backend server (from server directory)
    npm run dev
-
-   # Start the frontend server (from client directory)
-   npm run dev
+   # or
+   yarn dev
    ```
+
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Environment Variables
+
+The application uses the following environment variables:
+
+### GitHub OAuth
+
+1. Create a GitHub OAuth App at [GitHub Developer Settings](https://github.com/settings/developers)
+2. Set the Authorization callback URL to `http://localhost:3000/api/auth/callback/github`
+3. Add the following to your `.env.local` file:
+   ```
+   NEXT_PUBLIC_GITHUB_CLIENT_ID=your_github_client_id
+   GITHUB_CLIENT_SECRET=your_github_client_secret
+   NEXT_PUBLIC_GITHUB_REDIRECT_URI=http://localhost:3000/api/auth/callback/github
+   ```
+
+### Atlassian OAuth
+
+1. Create an Atlassian OAuth App at [Atlassian Developer Console](https://developer.atlassian.com/console/myapps/)
+2. Set the Authorization callback URL to `http://localhost:3000/auth/jira/complete`
+3. Add the following to your `.env.local` file:
+   ```
+   NEXT_PUBLIC_JIRA_CLIENT_ID=your_jira_client_id
+   JIRA_CLIENT_SECRET=your_jira_client_secret
+   NEXT_PUBLIC_JIRA_REDIRECT_URI=http://localhost:3000/auth/jira/complete
+   ```
+
+### Application URL
+
+Set the application URL for server-side operations:
+```
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
 
 ## Development Workflow
 

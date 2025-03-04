@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { FileText, Download, Eye, Calendar, Star, StarOff } from "lucide-react"
+import { FileText, Download, Eye, Calendar, Star, StarOff, Trash2, AlertCircle } from "lucide-react"
 import { useState } from "react"
 
 // Mock data for demonstration
@@ -36,6 +36,7 @@ const mockBragSheets = [
 export function BragSheetList() {
   const [bragSheets, setBragSheets] = useState(mockBragSheets);
   const [showPreview, setShowPreview] = useState<string | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<string | null>(null);
   
   const toggleStar = (id: string) => {
     setBragSheets(prev => 
@@ -43,6 +44,11 @@ export function BragSheetList() {
         sheet.id === id ? { ...sheet, starred: !sheet.starred } : sheet
       )
     );
+  };
+  
+  const deleteBragSheet = (id: string) => {
+    setBragSheets(prev => prev.filter(sheet => sheet.id !== id));
+    setDeleteConfirmation(null);
   };
   
   const formatDate = (date: Date) => {
@@ -92,19 +98,30 @@ export function BragSheetList() {
                       </span>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => toggleStar(sheet.id)}
-                    title={sheet.starred ? "Unstar" : "Star"}
-                  >
-                    {sheet.starred ? (
-                      <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                    ) : (
-                      <StarOff className="h-4 w-4 text-gray-400" />
-                    )}
-                  </Button>
+                  <div className="flex space-x-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => toggleStar(sheet.id)}
+                      title={sheet.starred ? "Unstar" : "Star"}
+                    >
+                      {sheet.starred ? (
+                        <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                      ) : (
+                        <StarOff className="h-4 w-4 text-gray-400" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => setDeleteConfirmation(sheet.id)}
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -157,10 +174,11 @@ export function BragSheetList() {
         )}
       </CardContent>
       
+      {/* Preview Modal */}
       {showPreview && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-auto">
-            <div className="p-4 border-b flex justify-between items-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[80vh] overflow-auto">
+            <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center">
               <h2 className="text-lg font-bold">
                 {bragSheets.find(s => s.id === showPreview)?.title}
               </h2>
@@ -196,13 +214,44 @@ export function BragSheetList() {
                 </ul>
               </div>
             </div>
-            <div className="p-4 border-t bg-gray-50 flex justify-end">
+            <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-end">
               <Button 
                 className="bg-red-600 hover:bg-red-700 text-white"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full">
+            <div className="p-5 text-center">
+              <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
+              <h3 className="text-lg font-bold mb-2">Delete Brag Sheet</h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-6">
+                Are you sure you want to delete "{bragSheets.find(s => s.id === deleteConfirmation)?.title}"? 
+                This action cannot be undone.
+              </p>
+              <div className="flex space-x-3 justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => setDeleteConfirmation(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  onClick={() => deleteBragSheet(deleteConfirmation)}
+                >
+                  Delete
+                </Button>
+              </div>
             </div>
           </div>
         </div>

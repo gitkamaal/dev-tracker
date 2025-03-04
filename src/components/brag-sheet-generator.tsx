@@ -6,12 +6,13 @@ import { FileText, Calendar, Download, Eye } from "lucide-react"
 import { useState } from "react"
 
 export function BragSheetGenerator() {
+  // All competencies are selected by default
   const [selectedCompetencies, setSelectedCompetencies] = useState({
-    beCandid: false,
+    beCandid: true,
     buildExpertise: true,
-    cultivateDifference: false,
+    cultivateDifference: true,
     driveOutcomes: true,
-    developOthers: false
+    developOthers: true
   });
   
   const [dateRange, setDateRange] = useState({
@@ -21,13 +22,6 @@ export function BragSheetGenerator() {
   
   const [format, setFormat] = useState("pdf");
   const [showPreview, setShowPreview] = useState(false);
-  
-  const toggleCompetency = (competency: keyof typeof selectedCompetencies) => {
-    setSelectedCompetencies(prev => ({
-      ...prev,
-      [competency]: !prev[competency]
-    }));
-  };
   
   const handleDateChange = (type: 'start' | 'end', value: string) => {
     setDateRange(prev => ({
@@ -47,62 +41,6 @@ export function BragSheetGenerator() {
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          <div>
-            <h3 className="text-sm font-medium mb-2">Select Competencies</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div className="flex items-center space-x-2">
-                <input 
-                  type="checkbox" 
-                  id="be-candid" 
-                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600"
-                  checked={selectedCompetencies.beCandid}
-                  onChange={() => toggleCompetency('beCandid')}
-                />
-                <label htmlFor="be-candid" className="text-sm">Be Candid</label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <input 
-                  type="checkbox" 
-                  id="build-expertise" 
-                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600"
-                  checked={selectedCompetencies.buildExpertise}
-                  onChange={() => toggleCompetency('buildExpertise')}
-                />
-                <label htmlFor="build-expertise" className="text-sm">Build Expertise</label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <input 
-                  type="checkbox" 
-                  id="cultivate-difference" 
-                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600"
-                  checked={selectedCompetencies.cultivateDifference}
-                  onChange={() => toggleCompetency('cultivateDifference')}
-                />
-                <label htmlFor="cultivate-difference" className="text-sm">Cultivate Difference</label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <input 
-                  type="checkbox" 
-                  id="drive-outcomes" 
-                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600"
-                  checked={selectedCompetencies.driveOutcomes}
-                  onChange={() => toggleCompetency('driveOutcomes')}
-                />
-                <label htmlFor="drive-outcomes" className="text-sm">Drive Outcomes</label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <input 
-                  type="checkbox" 
-                  id="develop-others" 
-                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600"
-                  checked={selectedCompetencies.developOthers}
-                  onChange={() => toggleCompetency('developOthers')}
-                />
-                <label htmlFor="develop-others" className="text-sm">Develop Others</label>
-              </div>
-            </div>
-          </div>
-          
           <div>
             <h3 className="text-sm font-medium mb-2 flex items-center">
               <Calendar className="h-4 w-4 mr-1 text-primary-600 dark:text-primary-400" />
@@ -201,34 +139,50 @@ export function BragSheetGenerator() {
             <div className="p-6">
               <h3 className="text-xl font-bold mb-4">Performance Review: {new Date(dateRange.start).toLocaleDateString()} - {new Date(dateRange.end).toLocaleDateString()}</h3>
               
-              {selectedCompetencies.buildExpertise && (
-                <div className="mb-6">
-                  <h4 className="text-lg font-semibold text-primary-600 dark:text-primary-400 mb-2">Build Expertise</h4>
-                  <ul className="list-disc pl-5 space-y-2">
-                    <li>Implemented new authentication flow in the user service</li>
-                    <li>Fixed critical bug in payment processing system</li>
-                    <li>Contributed to 24 GitHub pull requests</li>
-                  </ul>
-                </div>
-              )}
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-primary-600 dark:text-primary-400 mb-2">Build Expertise</h4>
+                <ul className="list-disc pl-5 space-y-2">
+                  <li>Implemented new authentication flow in the user service</li>
+                  <li>Fixed critical bug in payment processing system</li>
+                  <li>Contributed to 24 GitHub pull requests</li>
+                </ul>
+              </div>
               
-              {selectedCompetencies.driveOutcomes && (
-                <div className="mb-6">
-                  <h4 className="text-lg font-semibold text-primary-600 dark:text-primary-400 mb-2">Drive Outcomes</h4>
-                  <ul className="list-disc pl-5 space-y-2">
-                    <li>Led the dashboard analytics project to completion</li>
-                    <li>Resolved 32 Jira tickets across multiple projects</li>
-                    <li>Improved system performance by 15%</li>
-                  </ul>
-                </div>
-              )}
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-primary-600 dark:text-primary-400 mb-2">Drive Outcomes</h4>
+                <ul className="list-disc pl-5 space-y-2">
+                  <li>Led the dashboard analytics project to completion</li>
+                  <li>Resolved 32 Jira tickets across multiple projects</li>
+                  <li>Improved system performance by 15%</li>
+                </ul>
+              </div>
               
-              {selectedCompetencies.beCandid && (
-                <div className="mb-6">
-                  <h4 className="text-lg font-semibold text-primary-600 dark:text-primary-400 mb-2">Be Candid</h4>
-                  <p className="text-gray-500 dark:text-gray-400 italic">No contributions found for this competency in the selected date range.</p>
-                </div>
-              )}
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-primary-600 dark:text-primary-400 mb-2">Be Candid</h4>
+                <ul className="list-disc pl-5 space-y-2">
+                  <li>Provided constructive feedback during 5 code reviews</li>
+                  <li>Identified and documented 3 process improvements</li>
+                  <li>Actively participated in team retrospectives</li>
+                </ul>
+              </div>
+              
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-primary-600 dark:text-primary-400 mb-2">Cultivate Difference</h4>
+                <ul className="list-disc pl-5 space-y-2">
+                  <li>Collaborated with cross-functional teams on 2 projects</li>
+                  <li>Participated in diversity and inclusion initiatives</li>
+                  <li>Incorporated diverse perspectives in project planning</li>
+                </ul>
+              </div>
+              
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-primary-600 dark:text-primary-400 mb-2">Develop Others</h4>
+                <ul className="list-disc pl-5 space-y-2">
+                  <li>Mentored 2 junior developers</li>
+                  <li>Created documentation for onboarding new team members</li>
+                  <li>Led 3 knowledge-sharing sessions on technical topics</li>
+                </ul>
+              </div>
             </div>
             <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-end">
               <Button 

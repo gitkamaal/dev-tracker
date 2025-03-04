@@ -1,7 +1,6 @@
 import { Navbar } from "@/components/navbar"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { DashboardTabs } from "@/components/dashboard-tabs"
-import { CompetencyMapping } from "@/components/competency-mapping"
 
 export default function Home() {
   return (
@@ -13,10 +12,6 @@ export default function Home() {
         
         <div className="mt-10">
           <DashboardTabs />
-        </div>
-        
-        <div className="mt-12">
-          <CompetencyMapping />
         </div>
       </main>
     </div>

@@ -1,31 +1,76 @@
 "use client"
 
 import {
-  GitlabIcon as GitHub,
-  GithubIcon as Bitbucket,
+  GithubIcon as GitHub,
   Trello,
   Book,
   CheckCircle,
   XCircle,
   Info,
-  Backpack
+  Backpack,
+  Link as LinkIcon,
+  Unlink,
+  AlertCircle,
+  Check,
+  Loader2,
+  ExternalLink
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useState } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { useAuth } from "@/contexts/auth-context"
+import { fetchUserRepositories, fetchUserContributions } from "@/lib/github"
 
-// Mock data for demonstration
+// Mock data for non-GitHub connections
 const initialConnectionStatus = {
-  github: false,
-  bitbucket: false,
-  jira: false,
-  confluence: false,
   tafbadges: false
 };
 
 export function AccountConnections() {
+  const { 
+    isAuthenticated, 
+    user, 
+    accessToken, 
+    login, 
+    logout, 
+    loading,
+    isJiraAuthenticated,
+    jiraUser,
+    loginJira,
+    logoutJira,
+    jiraLoading
+  } = useAuth();
   const [connections, setConnections] = useState(initialConnectionStatus);
   const [showInfo, setShowInfo] = useState<string | null>(null);
+  const [githubData, setGithubData] = useState<any>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [jiraDisconnecting, setJiraDisconnecting] = useState(false);
+  
+  // Fetch GitHub data when authenticated
+  useEffect(() => {
+    const fetchGitHubData = async () => {
+      if (isAuthenticated && accessToken && user) {
+        try {
+          // Fetch repositories and contributions in parallel
+          const [repos, contributions] = await Promise.all([
+            fetchUserRepositories(accessToken),
+            fetchUserContributions(accessToken, user.login)
+          ]);
+          
+          setGithubData({
+            repos,
+            contributions,
+            username: user.login,
+            avatar: user.avatar_url
+          });
+        } catch (error) {
+          console.error('Error fetching GitHub data:', error);
+        }
+      }
+    };
+    
+    fetchGitHubData();
+  }, [isAuthenticated, accessToken, user]);
   
   const toggleConnection = (platform: keyof typeof connections) => {
     setConnections(prev => ({
@@ -34,11 +79,35 @@ export function AccountConnections() {
     }));
   };
   
+  const handleGitHubDisconnect = async () => {
+    setDisconnecting(true);
+    try {
+      // Simulate API call to revoke token
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      logout();
+    } catch (error) {
+      console.error("Error disconnecting GitHub:", error);
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  const handleJiraDisconnect = async () => {
+    setJiraDisconnecting(true);
+    try {
+      // Simulate API call to revoke token
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      logoutJira();
+    } catch (error) {
+      console.error("Error disconnecting Atlassian:", error);
+    } finally {
+      setJiraDisconnecting(false);
+    }
+  };
+  
   const platformInfo = {
     github: "Connect your GitHub account to track commits, pull requests, and code reviews.",
-    bitbucket: "Connect your Bitbucket account to track repositories, commits, and pull requests.",
-    jira: "Connect your Jira account to track tickets, sprints, and project contributions.",
-    confluence: "Connect your Confluence account to track documentation and knowledge sharing.",
+    atlassian: "Connect your Atlassian account to track Jira issues, Confluence pages, and Bitbucket repositories.",
     tafbadges: "Connect your TAF Badges account to track your earned certifications and learning achievements."
   };
   
@@ -52,7 +121,7 @@ export function AccountConnections() {
               Link your external accounts to start tracking your accomplishments
             </CardDescription>
           </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-500">
+          <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
             <span className="flex items-center">
               <CheckCircle className="h-4 w-4 text-green-500 mr-1" />
               Connected
@@ -66,187 +135,201 @@ export function AccountConnections() {
       </CardHeader>
       <CardContent className="pt-4">
         <div className="space-y-6">
-          <div className="relative">
-            <Button 
-              variant={connections.github ? "default" : "outline"} 
-              className={`h-auto py-5 w-full flex items-center justify-start space-x-4 transition-all ${
-                connections.github ? "bg-green-50 text-green-700 border-green-300 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-900/30" : ""
-              }`}
-              onClick={() => toggleConnection("github")}
-            >
-              <div className="relative">
-                <GitHub size={28} />
-                {connections.github && (
-                  <CheckCircle className="h-4 w-4 text-green-500 absolute -top-2 -right-2 bg-white rounded-full" />
-                )}
-              </div>
-              <div className="flex flex-col items-start">
-                <span className="font-medium text-base">GitHub</span>
-                <span className="text-xs text-gray-500 mt-1">
-                  {connections.github ? "Connected" : "Not Connected"}
-                </span>
-              </div>
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="absolute top-1 right-1 h-6 w-6"
-              onClick={() => setShowInfo(showInfo === "github" ? null : "github")}
-            >
-              <Info className="h-4 w-4" />
-            </Button>
-            {showInfo === "github" && (
-              <div className="absolute z-10 top-full left-0 right-0 mt-2 p-3 bg-white rounded-md shadow-lg text-sm text-gray-700 border border-gray-200">
-                {platformInfo.github}
-              </div>
-            )}
-          </div>
+          {/* GitHub Connection */}
+          <Card>
+            <CardHeader className="space-y-1">
+              <CardTitle className="flex items-center">
+                <GitHub className="mr-2 h-4 w-4" />
+                GitHub
+              </CardTitle>
+              <CardDescription>
+                Connect to your GitHub account to track your commits, PRs, and issues.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : isAuthenticated ? (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Check className="h-5 w-5 text-green-500" />
+                    <span className="text-sm font-medium">Connected as {user?.login}</span>
+                  </div>
+                  {user?.avatar_url && (
+                    <div className="flex items-center space-x-2">
+                      <img 
+                        src={user.avatar_url} 
+                        alt={`${user.login}'s avatar`} 
+                        className="h-8 w-8 rounded-full"
+                      />
+                      <div>
+                        <p className="text-sm font-medium">{user.name || user.login}</p>
+                        <p className="text-xs text-muted-foreground">{user.email || ''}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>Not connected</span>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter>
+              {isAuthenticated ? (
+                <Button 
+                  variant="outline" 
+                  className="w-full" 
+                  onClick={handleGitHubDisconnect}
+                  disabled={disconnecting}
+                >
+                  {disconnecting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Disconnecting...
+                    </>
+                  ) : (
+                    'Disconnect'
+                  )}
+                </Button>
+              ) : (
+                <Button 
+                  className="w-full" 
+                  onClick={login}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    'Connect GitHub'
+                  )}
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
           
-          <div className="relative">
-            <Button 
-              variant={connections.bitbucket ? "default" : "outline"} 
-              className={`h-auto py-5 w-full flex items-center justify-start space-x-4 transition-all ${
-                connections.bitbucket ? "bg-green-50 text-green-700 border-green-300 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-900/30" : ""
-              }`}
-              onClick={() => toggleConnection("bitbucket")}
-            >
-              <div className="relative">
-                <Bitbucket size={28} />
-                {connections.bitbucket && (
-                  <CheckCircle className="h-4 w-4 text-green-500 absolute -top-2 -right-2 bg-white rounded-full" />
-                )}
-              </div>
-              <div className="flex flex-col items-start">
-                <span className="font-medium text-base">Bitbucket</span>
-                <span className="text-xs text-gray-500 mt-1">
-                  {connections.bitbucket ? "Connected" : "Not Connected"}
-                </span>
-              </div>
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="absolute top-1 right-1 h-6 w-6"
-              onClick={() => setShowInfo(showInfo === "bitbucket" ? null : "bitbucket")}
-            >
-              <Info className="h-4 w-4" />
-            </Button>
-            {showInfo === "bitbucket" && (
-              <div className="absolute z-10 top-full left-0 right-0 mt-2 p-3 bg-white rounded-md shadow-lg text-sm text-gray-700 border border-gray-200">
-                {platformInfo.bitbucket}
-              </div>
-            )}
-          </div>
+          {/* Atlassian Connection */}
+          <Card>
+            <CardHeader className="space-y-1">
+              <CardTitle className="flex items-center">
+                <Trello className="mr-2 h-4 w-4" />
+                Atlassian
+              </CardTitle>
+              <CardDescription>
+                Connect to your Atlassian account to track Jira issues, Confluence pages, and Bitbucket repositories.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {jiraLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : isJiraAuthenticated ? (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Check className="h-5 w-5 text-green-500" />
+                    <span className="text-sm font-medium">Connected as {jiraUser?.name || jiraUser?.email}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div>
+                      <p className="text-sm font-medium">{jiraUser?.name || 'Atlassian User'}</p>
+                      <p className="text-xs text-muted-foreground">{jiraUser?.email || ''}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>Not connected</span>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter>
+              {isJiraAuthenticated ? (
+                <Button 
+                  variant="outline" 
+                  className="w-full" 
+                  onClick={handleJiraDisconnect}
+                  disabled={jiraDisconnecting}
+                >
+                  {jiraDisconnecting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Disconnecting...
+                    </>
+                  ) : (
+                    'Disconnect'
+                  )}
+                </Button>
+              ) : (
+                <Button 
+                  className="w-full" 
+                  onClick={loginJira}
+                  disabled={jiraLoading}
+                >
+                  {jiraLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    'Connect Atlassian'
+                  )}
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
           
-          <div className="relative">
-            <Button 
-              variant={connections.jira ? "default" : "outline"} 
-              className={`h-auto py-5 w-full flex items-center justify-start space-x-4 transition-all ${
-                connections.jira ? "bg-green-50 text-green-700 border-green-300 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-900/30" : ""
-              }`}
-              onClick={() => toggleConnection("jira")}
-            >
-              <div className="relative">
-                <Trello size={28} />
-                {connections.jira && (
-                  <CheckCircle className="h-4 w-4 text-green-500 absolute -top-2 -right-2 bg-white rounded-full" />
-                )}
-              </div>
-              <div className="flex flex-col items-start">
-                <span className="font-medium text-base">Jira</span>
-                <span className="text-xs text-gray-500 mt-1">
-                  {connections.jira ? "Connected" : "Not Connected"}
-                </span>
-              </div>
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="absolute top-1 right-1 h-6 w-6"
-              onClick={() => setShowInfo(showInfo === "jira" ? null : "jira")}
-            >
-              <Info className="h-4 w-4" />
-            </Button>
-            {showInfo === "jira" && (
-              <div className="absolute z-10 top-full left-0 right-0 mt-2 p-3 bg-white rounded-md shadow-lg text-sm text-gray-700 border border-gray-200">
-                {platformInfo.jira}
-              </div>
-            )}
-          </div>
-          
-          <div className="relative">
-            <Button 
-              variant={connections.confluence ? "default" : "outline"} 
-              className={`h-auto py-5 w-full flex items-center justify-start space-x-4 transition-all ${
-                connections.confluence ? "bg-green-50 text-green-700 border-green-300 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-900/30" : ""
-              }`}
-              onClick={() => toggleConnection("confluence")}
-            >
-              <div className="relative">
-                <Book size={28} />
-                {connections.confluence && (
-                  <CheckCircle className="h-4 w-4 text-green-500 absolute -top-2 -right-2 bg-white rounded-full" />
-                )}
-              </div>
-              <div className="flex flex-col items-start">
-                <span className="font-medium text-base">Confluence</span>
-                <span className="text-xs text-gray-500 mt-1">
-                  {connections.confluence ? "Connected" : "Not Connected"}
-                </span>
-              </div>
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="absolute top-1 right-1 h-6 w-6"
-              onClick={() => setShowInfo(showInfo === "confluence" ? null : "confluence")}
-            >
-              <Info className="h-4 w-4" />
-            </Button>
-            {showInfo === "confluence" && (
-              <div className="absolute z-10 top-full left-0 right-0 mt-2 p-3 bg-white rounded-md shadow-lg text-sm text-gray-700 border border-gray-200">
-                {platformInfo.confluence}
-              </div>
-            )}
-          </div>
-          
-          <div className="relative">
-            <Button 
-              variant={connections.tafbadges ? "default" : "outline"} 
-              className={`h-auto py-5 w-full flex items-center justify-start space-x-4 transition-all ${
-                connections.tafbadges ? "bg-green-50 text-green-700 border-green-300 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-900/30" : ""
-              }`}
-              onClick={() => toggleConnection("tafbadges")}
-            >
-              <div className="relative">
-                <Backpack size={28} />
-                {connections.tafbadges && (
-                  <CheckCircle className="h-4 w-4 text-green-500 absolute -top-2 -right-2 bg-white rounded-full" />
-                )}
-              </div>
-              <div className="flex flex-col items-start">
-                <span className="font-medium text-base">TAF Badges</span>
-                <span className="text-xs text-gray-500 mt-1">
-                  {connections.tafbadges ? "Connected" : "Not Connected"}
-                </span>
-              </div>
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="absolute top-1 right-1 h-6 w-6"
-              onClick={() => setShowInfo(showInfo === "tafbadges" ? null : "tafbadges")}
-            >
-              <Info className="h-4 w-4" />
-            </Button>
-            {showInfo === "tafbadges" && (
-              <div className="absolute z-10 top-full left-0 right-0 mt-2 p-3 bg-white rounded-md shadow-lg text-sm text-gray-700 border border-gray-200">
-                {platformInfo.tafbadges}
-              </div>
-            )}
-          </div>
+          {/* TAF Badges Connection */}
+          <Card>
+            <CardHeader className="space-y-1">
+              <CardTitle className="flex items-center">
+                <Backpack className="mr-2 h-4 w-4" />
+                TAF Badges
+              </CardTitle>
+              <CardDescription>
+                Connect to your TAF Badges account to track your certifications and learning achievements.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {connections.tafbadges ? (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Check className="h-5 w-5 text-green-500" />
+                    <span className="text-sm font-medium">Connected as TAF User</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div>
+                      <p className="text-sm font-medium">TAF User</p>
+                      <p className="text-xs text-muted-foreground">user@example.com</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>Not connected</span>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter>
+              <Button 
+                variant={connections.tafbadges ? "outline" : "default"}
+                className="w-full" 
+                onClick={() => toggleConnection("tafbadges")}
+              >
+                {connections.tafbadges ? 'Disconnect' : 'Connect TAF Badges'}
+              </Button>
+            </CardFooter>
+          </Card>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 } 

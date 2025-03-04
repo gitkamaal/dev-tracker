@@ -1,149 +1,193 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { GitPullRequest, CheckCircle2, Clock, GitCommit, FileText } from "lucide-react"
-import { useState } from "react"
+import { GitCommit, GitPullRequest, GitMerge, MessageSquare, Calendar } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 
-// Mock data for demonstration
-const mockActivities = [
-  {
-    id: '1',
-    type: 'pull_request',
-    title: 'Pull Request Merged',
-    description: 'Fixed authentication bug in user service',
-    platform: 'GitHub',
-    date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-    competency: 'Build Expertise',
-    icon: <GitPullRequest className="h-4 w-4" />,
-    color: 'bg-blue-500'
-  },
-  {
-    id: '2',
-    type: 'jira',
-    title: 'Jira Ticket Resolved',
-    description: 'Implemented new feature for dashboard analytics',
-    platform: 'Jira',
-    date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 1 week ago
-    competency: 'Drive Outcomes',
-    icon: <CheckCircle2 className="h-4 w-4" />,
-    color: 'bg-purple-500'
-  },
-  {
-    id: '3',
-    type: 'commit',
-    title: 'Code Committed',
-    description: 'Added unit tests for payment service',
-    platform: 'GitHub',
-    date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-    competency: 'Build Expertise',
-    icon: <GitCommit className="h-4 w-4" />,
-    color: 'bg-green-500'
-  },
-  {
-    id: '4',
-    type: 'confluence',
-    title: 'Documentation Updated',
-    description: 'Updated API documentation with new endpoints',
-    platform: 'Confluence',
-    date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-    competency: 'Develop Others',
-    icon: <FileText className="h-4 w-4" />,
-    color: 'bg-indigo-500'
-  }
-];
+type Activity = {
+  id: string;
+  type: 'commit' | 'pr' | 'review' | 'issue';
+  title: string;
+  repo: string;
+  date: Date;
+  url?: string;
+}
 
 export function ActivityTimeline() {
-  const [filter, setFilter] = useState('all');
-  
-  const filteredActivities = filter === 'all' 
-    ? mockActivities 
-    : mockActivities.filter(activity => activity.platform.toLowerCase() === filter.toLowerCase());
-  
+  const { isAuthenticated, accessToken, user } = useAuth();
+  const [filter, setFilter] = useState<string>("all");
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    const fetchGitHubActivities = async () => {
+      if (!isAuthenticated || !accessToken || !user) {
+        // Use empty activities if not authenticated
+        setActivities([]);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        // Fetch recent events from GitHub
+        const response = await fetch(`https://api.github.com/users/${user.login}/events?per_page=10`, {
+          headers: {
+            'Authorization': `token ${accessToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch GitHub activities');
+        }
+
+        const events = await response.json();
+        
+        // Transform GitHub events to our activity format
+        const transformedActivities = events.map((event: any) => {
+          let activity: Activity = {
+            id: event.id,
+            type: 'commit',
+            title: 'Unknown activity',
+            repo: event.repo.name,
+            date: new Date(event.created_at),
+            url: event.payload.comment?.html_url || event.payload.pull_request?.html_url || event.payload.issue?.html_url || `https://github.com/${event.repo.name}`
+          };
+
+          switch (event.type) {
+            case 'PushEvent':
+              const commitCount = event.payload.commits?.length || 0;
+              activity.type = 'commit';
+              activity.title = commitCount === 1 
+                ? `Pushed 1 commit to ${event.repo.name}`
+                : `Pushed ${commitCount} commits to ${event.repo.name}`;
+              break;
+            case 'PullRequestEvent':
+              activity.type = 'pr';
+              activity.title = `${event.payload.action} pull request in ${event.repo.name}`;
+              break;
+            case 'IssueCommentEvent':
+              activity.type = 'review';
+              activity.title = `Commented on issue in ${event.repo.name}`;
+              break;
+            case 'IssuesEvent':
+              activity.type = 'issue';
+              activity.title = `${event.payload.action} issue in ${event.repo.name}`;
+              break;
+            case 'PullRequestReviewEvent':
+              activity.type = 'review';
+              activity.title = `Reviewed pull request in ${event.repo.name}`;
+              break;
+            case 'PullRequestReviewCommentEvent':
+              activity.type = 'review';
+              activity.title = `Commented on pull request in ${event.repo.name}`;
+              break;
+            default:
+              activity.type = 'commit';
+              activity.title = `Activity in ${event.repo.name}`;
+          }
+
+          return activity;
+        });
+
+        setActivities(transformedActivities);
+      } catch (error) {
+        console.error('Error fetching GitHub activities:', error);
+        setActivities([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchGitHubActivities();
+  }, [isAuthenticated, accessToken, user]);
+
   const formatDate = (date: Date) => {
-    const now = new Date();
-    const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (diffInDays === 0) return 'Today';
-    if (diffInDays === 1) return 'Yesterday';
-    if (diffInDays < 7) return `${diffInDays} days ago`;
-    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
-    return date.toLocaleDateString();
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+    }).format(date);
   };
-  
+
+  const filteredActivities = filter === "all" 
+    ? activities 
+    : activities.filter(activity => activity.type === filter);
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'commit':
+        return <GitCommit className="h-5 w-5 text-blue-500" />;
+      case 'pr':
+        return <GitPullRequest className="h-5 w-5 text-purple-500" />;
+      case 'review':
+        return <MessageSquare className="h-5 w-5 text-green-500" />;
+      case 'issue':
+        return <GitMerge className="h-5 w-5 text-orange-500" />;
+      default:
+        return <Calendar className="h-5 w-5 text-gray-500" />;
+    }
+  };
+
   return (
-    <Card className="border-t-4 border-t-accent">
-      <CardHeader className="pb-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="flex items-center text-xl">
-              <Clock className="h-5 w-5 text-primary-600 dark:text-primary-400 mr-2" />
-              Recent Activity
-            </CardTitle>
-            <CardDescription className="mt-2">Your latest contributions across all platforms</CardDescription>
-          </div>
-          <div className="flex space-x-2">
-            <select 
-              className="text-xs border rounded px-2 py-1 bg-background dark:bg-gray-800"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            >
-              <option value="all">All Platforms</option>
-              <option value="github">GitHub</option>
-              <option value="bitbucket">Bitbucket</option>
-              <option value="jira">Jira</option>
-              <option value="confluence">Confluence</option>
-            </select>
-          </div>
-        </div>
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle>Recent Activity</CardTitle>
+        <CardDescription>Your latest development activities</CardDescription>
       </CardHeader>
-      <CardContent className="pt-4">
-        <div className="space-y-8">
-          {filteredActivities.length > 0 ? (
-            filteredActivities.map((activity, index) => (
-              <div key={activity.id} className="flex items-start space-x-4">
-                <div className="min-w-10 flex flex-col items-center">
-                  <div className={`w-10 h-10 rounded-full ${activity.color} flex items-center justify-center text-white`}>
-                    {activity.icon}
-                  </div>
-                  {index < filteredActivities.length - 1 && (
-                    <div className="w-0.5 h-full bg-gray-200 dark:bg-gray-700 my-3"></div>
-                  )}
+      <CardContent>
+        <div className="mb-4 flex justify-between items-center">
+          <select
+            className="text-sm border rounded p-1 dark:bg-gray-800 dark:border-gray-700"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          >
+            <option value="all">All Activities</option>
+            <option value="commit">Commits</option>
+            <option value="pr">Pull Requests</option>
+            <option value="review">Reviews</option>
+            <option value="issue">Issues</option>
+          </select>
+        </div>
+
+        {loading ? (
+          <div className="py-8 text-center text-gray-500 dark:text-gray-400">
+            Loading activities...
+          </div>
+        ) : !isAuthenticated ? (
+          <div className="py-8 text-center text-gray-500 dark:text-gray-400">
+            Connect your GitHub account to see your activities
+          </div>
+        ) : filteredActivities.length === 0 ? (
+          <div className="py-8 text-center text-gray-500 dark:text-gray-400">
+            No activities found for the selected filter.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredActivities.map((activity) => (
+              <div key={activity.id} className="flex items-start space-x-3">
+                <div className="mt-1">
+                  {getActivityIcon(activity.type)}
                 </div>
-                <div className="flex-1 bg-gray-50 dark:bg-gray-800 p-5 rounded-md border border-gray-100 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <h4 className="font-medium text-base">{activity.title}</h4>
-                    <div className="flex items-center">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(activity.date)}</span>
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">{activity.description}</p>
-                  <div className="mt-4 flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        activity.platform === 'GitHub' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
-                        activity.platform === 'Bitbucket' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
-                        activity.platform === 'Jira' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300' :
-                        'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300'
-                      }`}>
-                        {activity.platform}
-                      </span>
-                      <span className="text-xs px-2 py-1 bg-primary-50 text-primary-600 dark:bg-primary-900 dark:text-primary-300 rounded">
-                        {activity.competency}
-                      </span>
-                    </div>
-                    <button className="text-xs text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-                      Add to Brag Sheet
-                    </button>
-                  </div>
+                <div className="flex-1">
+                  <a 
+                    href={activity.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium hover:underline"
+                  >
+                    {activity.title}
+                  </a>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {formatDate(activity.date)}
+                  </p>
                 </div>
               </div>
-            ))
-          ) : (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              No activities found for the selected filter.
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   )
