@@ -23,7 +23,7 @@ Dev Tracker simplifies the process of preparing for mid-year and year-end review
 ## Tech Stack
 
 - **Frontend**: Next.js, TypeScript, Tailwind CSS, shadcn/ui
-- **Authentication**: OAuth 2.0 for external services
+- **Authentication**: Personal Access Tokens for external services
 
 ## Project Structure
 
@@ -54,8 +54,8 @@ dev-tracker/
 
 - Node.js (v16+)
 - npm or yarn
-- GitHub OAuth App credentials
-- Atlassian OAuth App credentials
+- GitHub Personal Access Token
+- Atlassian API Token
 
 ### Installation
 
@@ -74,14 +74,7 @@ dev-tracker/
    yarn install
    ```
 
-3. Set up environment variables:
-   - Copy the `.env.example` file to `.env.local`:
-     ```
-     cp .env.example .env.local
-     ```
-   - Edit `.env.local` and add your OAuth credentials (see Environment Variables section below)
-
-4. Start the development server:
+3. Start the development server:
 
    ```
    npm run dev
@@ -89,40 +82,30 @@ dev-tracker/
    yarn dev
    ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-## Environment Variables
+## Personal Access Tokens
 
-The application uses the following environment variables:
+The application uses personal access tokens for authentication with external services:
 
-### GitHub OAuth
+### GitHub Personal Access Token
 
-1. Create a GitHub OAuth App at [GitHub Developer Settings](https://github.com/settings/developers)
-2. Set the Authorization callback URL to `http://localhost:3000/api/auth/callback/github`
-3. Add the following to your `.env.local` file:
-   ```
-   NEXT_PUBLIC_GITHUB_CLIENT_ID=your_github_client_id
-   GITHUB_CLIENT_SECRET=your_github_client_secret
-   NEXT_PUBLIC_GITHUB_REDIRECT_URI=http://localhost:3000/api/auth/callback/github
-   ```
+1. Go to [GitHub Developer Settings](https://github.com/settings/tokens)
+2. Click "Generate new token" (classic)
+3. Give your token a descriptive name
+4. Select the following scopes:
+   - `repo` (all)
+   - `user` (all)
+5. Click "Generate token"
+6. Copy the token and paste it into the application when connecting your GitHub account
 
-### Atlassian OAuth
+### Atlassian API Token
 
-1. Create an Atlassian OAuth App at [Atlassian Developer Console](https://developer.atlassian.com/console/myapps/)
-2. Set the Authorization callback URL to `http://localhost:3000/auth/jira/complete`
-3. Add the following to your `.env.local` file:
-   ```
-   NEXT_PUBLIC_JIRA_CLIENT_ID=your_jira_client_id
-   JIRA_CLIENT_SECRET=your_jira_client_secret
-   NEXT_PUBLIC_JIRA_REDIRECT_URI=http://localhost:3000/auth/jira/complete
-   ```
-
-### Application URL
-
-Set the application URL for server-side operations:
-```
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
+1. Go to [Atlassian API Tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
+2. Click "Create API token"
+3. Give your token a descriptive name
+4. Click "Create"
+5. Copy the token and paste it into the application when connecting your Atlassian account
 
 ## Development Workflow
 

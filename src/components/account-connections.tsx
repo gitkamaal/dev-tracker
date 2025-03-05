@@ -13,13 +13,17 @@ import {
   AlertCircle,
   Check,
   Loader2,
-  ExternalLink
+  ExternalLink,
+  Eye,
+  EyeOff
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { fetchUserRepositories, fetchUserContributions } from "@/lib/github"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 // Mock data for non-GitHub connections
 const initialConnectionStatus = {
@@ -31,20 +35,29 @@ export function AccountConnections() {
     isAuthenticated, 
     user, 
     accessToken, 
-    login, 
+    setGitHubToken, 
     logout, 
     loading,
     isJiraAuthenticated,
     jiraUser,
-    loginJira,
+    setJiraToken,
     logoutJira,
     jiraLoading
   } = useAuth();
+  
   const [connections, setConnections] = useState(initialConnectionStatus);
   const [showInfo, setShowInfo] = useState<string | null>(null);
   const [githubData, setGithubData] = useState<any>(null);
   const [disconnecting, setDisconnecting] = useState(false);
   const [jiraDisconnecting, setJiraDisconnecting] = useState(false);
+  
+  // Token input states
+  const [githubToken, setGithubTokenInput] = useState("");
+  const [jiraToken, setJiraTokenInput] = useState("");
+  const [showGithubToken, setShowGithubToken] = useState(false);
+  const [showJiraToken, setShowJiraToken] = useState(false);
+  const [connectingGithub, setConnectingGithub] = useState(false);
+  const [connectingJira, setConnectingJira] = useState(false);
   
   // Fetch GitHub data when authenticated
   useEffect(() => {
@@ -79,11 +92,38 @@ export function AccountConnections() {
     }));
   };
   
+  const handleGitHubConnect = async () => {
+    if (!githubToken.trim()) return;
+    
+    setConnectingGithub(true);
+    try {
+      setGitHubToken(githubToken);
+      setGithubTokenInput("");
+    } catch (error) {
+      console.error("Error connecting GitHub:", error);
+    } finally {
+      setConnectingGithub(false);
+    }
+  };
+  
+  const handleJiraConnect = async () => {
+    if (!jiraToken.trim()) return;
+    
+    setConnectingJira(true);
+    try {
+      setJiraToken(jiraToken);
+      setJiraTokenInput("");
+    } catch (error) {
+      console.error("Error connecting Jira:", error);
+    } finally {
+      setConnectingJira(false);
+    }
+  };
+  
   const handleGitHubDisconnect = async () => {
     setDisconnecting(true);
     try {
-      // Simulate API call to revoke token
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500));
       logout();
     } catch (error) {
       console.error("Error disconnecting GitHub:", error);
@@ -95,8 +135,7 @@ export function AccountConnections() {
   const handleJiraDisconnect = async () => {
     setJiraDisconnecting(true);
     try {
-      // Simulate API call to revoke token
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500));
       logoutJira();
     } catch (error) {
       console.error("Error disconnecting Atlassian:", error);
@@ -172,9 +211,50 @@ export function AccountConnections() {
                   )}
                 </div>
               ) : (
-                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>Not connected</span>
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Not connected</span>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="github-token">Personal Access Token</Label>
+                    <div className="flex">
+                      <div className="relative flex-grow">
+                        <Input
+                          id="github-token"
+                          type={showGithubToken ? "text" : "password"}
+                          placeholder="Enter your GitHub personal access token"
+                          value={githubToken}
+                          onChange={(e) => setGithubTokenInput(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowGithubToken(!showGithubToken)}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500"
+                        >
+                          {showGithubToken ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      <a 
+                        href="https://github.com/settings/tokens" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-primary-600 hover:underline flex items-center"
+                      >
+                        Generate a token <ExternalLink className="h-3 w-3 ml-1" />
+                      </a>
+                      <span className="block mt-1">
+                        Required scopes: repo, user
+                      </span>
+                    </p>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -198,10 +278,10 @@ export function AccountConnections() {
               ) : (
                 <Button 
                   className="w-full" 
-                  onClick={login}
-                  disabled={loading}
+                  onClick={handleGitHubConnect}
+                  disabled={connectingGithub || !githubToken.trim()}
                 >
-                  {loading ? (
+                  {connectingGithub ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Connecting...
@@ -244,9 +324,47 @@ export function AccountConnections() {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>Not connected</span>
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Not connected</span>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="jira-token">API Token</Label>
+                    <div className="flex">
+                      <div className="relative flex-grow">
+                        <Input
+                          id="jira-token"
+                          type={showJiraToken ? "text" : "password"}
+                          placeholder="Enter your Atlassian API token"
+                          value={jiraToken}
+                          onChange={(e) => setJiraTokenInput(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowJiraToken(!showJiraToken)}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500"
+                        >
+                          {showJiraToken ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      <a 
+                        href="https://id.atlassian.com/manage-profile/security/api-tokens" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-primary-600 hover:underline flex items-center"
+                      >
+                        Create an API token <ExternalLink className="h-3 w-3 ml-1" />
+                      </a>
+                    </p>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -270,10 +388,10 @@ export function AccountConnections() {
               ) : (
                 <Button 
                   className="w-full" 
-                  onClick={loginJira}
-                  disabled={jiraLoading}
+                  onClick={handleJiraConnect}
+                  disabled={connectingJira || !jiraToken.trim()}
                 >
-                  {jiraLoading ? (
+                  {connectingJira ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Connecting...

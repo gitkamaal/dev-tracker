@@ -1,192 +1,219 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { fetchUserProfile as fetchGitHubUserProfile, getGitHubAuthUrl } from '@/lib/github';
-import { fetchUserProfile as fetchJiraUserProfile, getJiraAuthUrl } from '@/lib/jira';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { fetchUserProfile as fetchGitHubProfile } from "@/lib/github";
+import { fetchUserProfile as fetchJiraProfile, fetchAccessibleResources } from "@/lib/jira";
 
-// Define the shape of our authentication context
 interface AuthContextType {
   isAuthenticated: boolean;
   user: any | null;
   accessToken: string | null;
-  login: () => void;
+  setGitHubToken: (token: string) => void;
   logout: () => void;
   loading: boolean;
   isJiraAuthenticated: boolean;
   jiraUser: any | null;
   jiraAccessToken: string | null;
-  jiraRefreshToken: string | null;
-  loginJira: () => void;
+  jiraCloudId: string | null;
+  setJiraToken: (token: string) => void;
   logoutJira: () => void;
   jiraLoading: boolean;
 }
 
-// Create the context with a default value
-const AuthContext = createContext<AuthContextType>({
+const defaultContext: AuthContextType = {
   isAuthenticated: false,
   user: null,
   accessToken: null,
-  login: () => {},
+  setGitHubToken: () => {},
   logout: () => {},
   loading: true,
   isJiraAuthenticated: false,
   jiraUser: null,
   jiraAccessToken: null,
-  jiraRefreshToken: null,
-  loginJira: () => {},
+  jiraCloudId: null,
+  setJiraToken: () => {},
   logoutJira: () => {},
   jiraLoading: true,
-});
+};
 
-// Hook to use the auth context
+const AuthContext = createContext<AuthContextType>(defaultContext);
+
 export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // GitHub auth state
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<any | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  
-  // Jira auth state
-  const [isJiraAuthenticated, setIsJiraAuthenticated] = useState<boolean>(false);
+  const [loading, setLoading] = useState(true);
+
+  const [isJiraAuthenticated, setIsJiraAuthenticated] = useState(false);
   const [jiraUser, setJiraUser] = useState<any | null>(null);
   const [jiraAccessToken, setJiraAccessToken] = useState<string | null>(null);
-  const [jiraRefreshToken, setJiraRefreshToken] = useState<string | null>(null);
-  const [jiraLoading, setJiraLoading] = useState<boolean>(true);
+  const [jiraCloudId, setJiraCloudId] = useState<string | null>(null);
+  const [jiraLoading, setJiraLoading] = useState(true);
 
-  // Check for existing GitHub auth on mount
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const storedToken = localStorage.getItem('github_access_token');
-        
-        if (storedToken) {
-          setAccessToken(storedToken);
-          
-          // Fetch user profile to validate token
-          const userProfile = await fetchGitHubUserProfile(storedToken);
-          setUser(userProfile);
-          setIsAuthenticated(true);
-        }
-      } catch (error) {
-        console.error('GitHub authentication error:', error);
-        // Clear invalid token
-        localStorage.removeItem('github_access_token');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     checkAuth();
-  }, []);
-  
-  // Check for existing Jira auth on mount
-  useEffect(() => {
-    const checkJiraAuth = async () => {
-      try {
-        const storedToken = localStorage.getItem('jira_access_token');
-        const storedRefreshToken = localStorage.getItem('jira_refresh_token');
-        
-        if (storedToken && storedRefreshToken) {
-          setJiraAccessToken(storedToken);
-          setJiraRefreshToken(storedRefreshToken);
-          
-          // Fetch user profile to validate token
-          const userProfile = await fetchJiraUserProfile(storedToken);
-          setJiraUser(userProfile);
-          setIsJiraAuthenticated(true);
-        }
-      } catch (error) {
-        console.error('Jira authentication error:', error);
-        // Clear invalid tokens
-        localStorage.removeItem('jira_access_token');
-        localStorage.removeItem('jira_refresh_token');
-      } finally {
-        setJiraLoading(false);
-      }
-    };
-
     checkJiraAuth();
   }, []);
 
-  // Redirect to GitHub login
-  const login = () => {
-    const authUrl = getGitHubAuthUrl();
-    window.location.href = authUrl;
+  const checkAuth = async () => {
+    try {
+      const token = localStorage.getItem("github_token");
+      if (token) {
+        setAccessToken(token);
+        try {
+          const profile = await fetchGitHubProfile(token);
+          if (profile) {
+            setUser(profile);
+            setIsAuthenticated(true);
+          }
+        } catch (error) {
+          console.error("Error fetching GitHub profile:", error);
+          localStorage.removeItem("github_token");
+          setIsAuthenticated(false);
+          setUser(null);
+          setAccessToken(null);
+        }
+      }
+    } catch (error) {
+      console.error("Auth check error:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Clear GitHub auth state
+  const checkJiraAuth = async () => {
+    try {
+      const token = localStorage.getItem("jira_token");
+      const cloudId = localStorage.getItem("jira_cloud_id");
+      
+      if (token) {
+        setJiraAccessToken(token);
+        
+        try {
+          // Fetch user profile
+          const profile = await fetchJiraProfile(token);
+          
+          // If we don't have a cloud ID yet, try to get one
+          let currentCloudId = cloudId;
+          if (!currentCloudId) {
+            const resources = await fetchAccessibleResources(token);
+            if (resources && resources.length > 0) {
+              currentCloudId = resources[0].id;
+              localStorage.setItem("jira_cloud_id", currentCloudId);
+              setJiraCloudId(currentCloudId);
+            }
+          } else {
+            setJiraCloudId(currentCloudId);
+          }
+          
+          if (profile) {
+            setJiraUser(profile);
+            setIsJiraAuthenticated(true);
+          }
+        } catch (error) {
+          console.error("Error fetching Jira profile:", error);
+          localStorage.removeItem("jira_token");
+          localStorage.removeItem("jira_cloud_id");
+          setIsJiraAuthenticated(false);
+          setJiraUser(null);
+          setJiraAccessToken(null);
+          setJiraCloudId(null);
+        }
+      }
+    } catch (error) {
+      console.error("Jira auth check error:", error);
+    } finally {
+      setJiraLoading(false);
+    }
+  };
+
+  const setGitHubToken = (token: string) => {
+    localStorage.setItem("github_token", token);
+    setAccessToken(token);
+    updateAuthState();
+  };
+
   const logout = () => {
-    localStorage.removeItem('github_access_token');
+    localStorage.removeItem("github_token");
     setIsAuthenticated(false);
     setUser(null);
     setAccessToken(null);
   };
-  
-  // Redirect to Jira login
-  const loginJira = () => {
-    const authUrl = getJiraAuthUrl();
-    window.location.href = authUrl;
+
+  const setJiraToken = (token: string) => {
+    localStorage.setItem("jira_token", token);
+    setJiraAccessToken(token);
+    updateJiraAuthState();
   };
 
-  // Clear Jira auth state
   const logoutJira = () => {
-    localStorage.removeItem('jira_access_token');
-    localStorage.removeItem('jira_refresh_token');
+    localStorage.removeItem("jira_token");
+    localStorage.removeItem("jira_cloud_id");
     setIsJiraAuthenticated(false);
     setJiraUser(null);
     setJiraAccessToken(null);
-    setJiraRefreshToken(null);
+    setJiraCloudId(null);
   };
 
-  // Update GitHub auth state when token changes
-  useEffect(() => {
-    const updateAuthState = async () => {
-      if (accessToken) {
-        try {
-          const userProfile = await fetchGitHubUserProfile(accessToken);
-          setUser(userProfile);
+  const updateAuthState = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("github_token");
+      if (token) {
+        const profile = await fetchGitHubProfile(token);
+        if (profile) {
+          setUser(profile);
           setIsAuthenticated(true);
-          localStorage.setItem('github_access_token', accessToken);
-        } catch (error) {
-          console.error('Failed to fetch GitHub user profile:', error);
-          setIsAuthenticated(false);
-          setUser(null);
-          localStorage.removeItem('github_access_token');
         }
+      } else {
+        setIsAuthenticated(false);
+        setUser(null);
       }
-    };
-
-    if (accessToken) {
-      updateAuthState();
+    } catch (error) {
+      console.error("Error updating auth state:", error);
+      setIsAuthenticated(false);
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
-  }, [accessToken]);
-  
-  // Update Jira auth state when token changes
-  useEffect(() => {
-    const updateJiraAuthState = async () => {
-      if (jiraAccessToken && jiraRefreshToken) {
-        try {
-          const userProfile = await fetchJiraUserProfile(jiraAccessToken);
-          setJiraUser(userProfile);
+  };
+
+  const updateJiraAuthState = async () => {
+    try {
+      setJiraLoading(true);
+      const token = localStorage.getItem("jira_token");
+      if (token) {
+        // Fetch user profile
+        const profile = await fetchJiraProfile(token);
+        
+        // Get cloud ID if we don't have one
+        const resources = await fetchAccessibleResources(token);
+        if (resources && resources.length > 0) {
+          const cloudId = resources[0].id;
+          localStorage.setItem("jira_cloud_id", cloudId);
+          setJiraCloudId(cloudId);
+        }
+        
+        if (profile) {
+          setJiraUser(profile);
           setIsJiraAuthenticated(true);
-          localStorage.setItem('jira_access_token', jiraAccessToken);
-          localStorage.setItem('jira_refresh_token', jiraRefreshToken);
-        } catch (error) {
-          console.error('Failed to fetch Jira user profile:', error);
-          setIsJiraAuthenticated(false);
-          setJiraUser(null);
-          localStorage.removeItem('jira_access_token');
-          localStorage.removeItem('jira_refresh_token');
         }
+      } else {
+        setIsJiraAuthenticated(false);
+        setJiraUser(null);
+        setJiraCloudId(null);
       }
-    };
-
-    if (jiraAccessToken && jiraRefreshToken) {
-      updateJiraAuthState();
+    } catch (error) {
+      console.error("Error updating Jira auth state:", error);
+      setIsJiraAuthenticated(false);
+      setJiraUser(null);
+      setJiraCloudId(null);
+    } finally {
+      setJiraLoading(false);
     }
-  }, [jiraAccessToken, jiraRefreshToken]);
+  };
 
   return (
     <AuthContext.Provider
@@ -194,14 +221,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated,
         user,
         accessToken,
-        login,
+        setGitHubToken,
         logout,
         loading,
         isJiraAuthenticated,
         jiraUser,
         jiraAccessToken,
-        jiraRefreshToken,
-        loginJira,
+        jiraCloudId,
+        setJiraToken,
         logoutJira,
         jiraLoading,
       }}
