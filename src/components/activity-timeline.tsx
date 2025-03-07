@@ -14,7 +14,7 @@ type Activity = {
   url?: string;
 }
 
-export function ActivityTimeline() {
+export function ActivityTimeline({ source = "all" }: { source?: "all" | "github" }) {
   const { isAuthenticated, accessToken, user } = useAuth();
   const [filter, setFilter] = useState<string>("all");
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -31,7 +31,7 @@ export function ActivityTimeline() {
       setLoading(true);
       try {
         // Fetch recent events from GitHub
-        const response = await fetch(`https://api.github.com/users/${user.login}/events?per_page=10`, {
+        const response = await fetch(`https://api.github.com/users/${user.login}/events?per_page=20`, {
           headers: {
             'Authorization': `token ${accessToken}`,
             'Accept': 'application/vnd.github.v3+json',
@@ -82,6 +82,22 @@ export function ActivityTimeline() {
             case 'PullRequestReviewCommentEvent':
               activity.type = 'review';
               activity.title = `Commented on pull request in ${event.repo.name}`;
+              break;
+            case 'CreateEvent':
+              activity.type = 'commit';
+              activity.title = `Created ${event.payload.ref_type} ${event.payload.ref || ''} in ${event.repo.name}`;
+              break;
+            case 'DeleteEvent':
+              activity.type = 'commit';
+              activity.title = `Deleted ${event.payload.ref_type} ${event.payload.ref || ''} in ${event.repo.name}`;
+              break;
+            case 'ForkEvent':
+              activity.type = 'pr';
+              activity.title = `Forked ${event.repo.name}`;
+              break;
+            case 'WatchEvent':
+              activity.type = 'issue';
+              activity.title = `Starred ${event.repo.name}`;
               break;
             default:
               activity.type = 'commit';
@@ -134,8 +150,12 @@ export function ActivityTimeline() {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle>Recent Activity</CardTitle>
-        <CardDescription>Your latest development activities</CardDescription>
+        <CardTitle>{source === "github" ? "GitHub Activity" : "Recent Activity"}</CardTitle>
+        <CardDescription>
+          {source === "github" 
+            ? "Your contributions and activity on GitHub" 
+            : "Your latest development activities"}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="mb-4 flex justify-between items-center">

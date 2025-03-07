@@ -13,6 +13,8 @@ import {
   fetchJiraProjects 
 } from "@/lib/atlassian";
 import { Trello, Clock, CheckCircle, AlertCircle, FolderKanban } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export function JiraIssuesView() {
   const auth = useAuth();
@@ -60,6 +62,28 @@ export function JiraIssuesView() {
     
     fetchJiraData();
   }, [isJiraAuthenticated, jiraEmail, jiraApiToken, jiraDomain]);
+
+  if (!isJiraAuthenticated) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Jira Integration</CardTitle>
+          <CardDescription>Connect your Jira account to see your issues and projects</CardDescription>
+        </CardHeader>
+        <CardContent className="text-center py-8">
+          <div className="flex flex-col items-center justify-center space-y-4">
+            <Trello className="h-12 w-12 text-muted-foreground" />
+            <p className="text-muted-foreground">Please connect your Atlassian account in the Connections page to view your Jira issues and projects.</p>
+            <Button asChild variant="outline">
+              <Link href="/connections">
+                Go to Connections
+              </Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (loading) {
     return <JiraLoadingSkeleton />;

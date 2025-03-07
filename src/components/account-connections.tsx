@@ -76,7 +76,7 @@ export function AccountConnections() {
           // Fetch repositories and contributions in parallel
           const [repos, contributions] = await Promise.all([
             fetchUserRepositories(accessToken),
-            fetchUserContributions(accessToken, user.login)
+            fetchUserContributions(accessToken)
           ]);
           
           setGithubData({
