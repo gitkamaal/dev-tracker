@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { useEffect, useState } from "react"
 import { useTheme } from "next-themes"
+import { AtlassianProfileView } from "@/components/atlassian-profile-view"
+import { useAuth } from "@/contexts/auth-context"
 
 export default function ProfilePage() {
   const { theme, setTheme } = useTheme();
@@ -169,50 +171,27 @@ export default function ProfilePage() {
             </TabsList>
             
             <TabsContent value="overview">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="md:col-span-2">
+              <div className="max-w-2xl space-y-6">
+                {/* About Me */}
+                <Card>
                   <CardHeader>
                     <CardTitle>About Me</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Passionate software engineer with 5+ years of experience in frontend development.
-                      Specialized in building responsive and accessible web applications using React and TypeScript.
-                      Currently focused on improving developer experience and application performance.
+                    <p className="text-sm text-muted-foreground">
+                      Senior Software Engineer with 5+ years of experience in full-stack development. 
+                      Passionate about clean code, performance optimization, and mentoring junior developers.
                     </p>
-                    
-                    <div className="mt-6 space-y-4">
-                      <div className="flex items-start">
-                        <User className="h-5 w-5 text-gray-500 dark:text-gray-400 mt-0.5 mr-3" />
-                        <div>
-                          <h4 className="font-medium">Full Name</h4>
-                          <p className="text-gray-600 dark:text-gray-400">John Doe</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start">
-                        <Calendar className="h-5 w-5 text-gray-500 dark:text-gray-400 mt-0.5 mr-3" />
-                        <div>
-                          <h4 className="font-medium">Joined</h4>
-                          <p className="text-gray-600 dark:text-gray-400">January 15, 2022</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start">
-                        <GitBranch className="h-5 w-5 text-gray-500 dark:text-gray-400 mt-0.5 mr-3" />
-                        <div>
-                          <h4 className="font-medium">Team</h4>
-                          <p className="text-gray-600 dark:text-gray-400">Platform Engineering</p>
-                        </div>
-                      </div>
-                    </div>
                   </CardContent>
                 </Card>
                 
+                {/* Atlassian Profile View */}
+                <AtlassianProfileView />
+                
+                {/* Top Competencies */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Top Competencies</CardTitle>
-                    <CardDescription>Your strongest areas based on activity</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
@@ -522,59 +501,93 @@ export default function ProfilePage() {
               </Card>
             </TabsContent>
             
-            <TabsContent value="account">
-              <div className="max-w-2xl">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Profile Information</CardTitle>
-                    <CardDescription>
-                      Update your account details and personal information.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="name">Full Name</Label>
-                        <Input 
-                          id="name" 
-                          placeholder="Your name" 
-                          value={accountInfo.name}
-                          onChange={(e) => handleAccountChange("name", e.target.value)}
-                        />
+            <TabsContent value="account" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Account</CardTitle>
+                  <CardDescription>
+                    Manage your account settings and connected services
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name</Label>
+                    <Input id="name" defaultValue="John Doe" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" defaultValue="john.doe@example.com" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Role</Label>
+                    <Input id="role" defaultValue="Software Engineer" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="team">Team</Label>
+                    <Input id="team" defaultValue="Platform Team" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Connected Services</Label>
+                    <div className="flex items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center">
+                          <GitHubLogoIcon className="mr-2 h-5 w-5" />
+                          <span className="text-sm font-medium">GitHub</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Your GitHub account is connected
+                        </p>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input 
-                          id="email" 
-                          type="email" 
-                          placeholder="Your email" 
-                          value={accountInfo.email}
-                          onChange={(e) => handleAccountChange("email", e.target.value)}
-                        />
+                      <Button variant="outline" size="sm">
+                        Manage
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center">
+                          <svg
+                            className="mr-2 h-5 w-5"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+                          </svg>
+                          <span className="text-sm font-medium">
+                            Atlassian
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Connect your Atlassian account
+                        </p>
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const email = prompt("Enter your Atlassian email:");
+                          const apiToken = prompt("Enter your Atlassian API token:");
+                          const domain = prompt("Enter your Atlassian domain (e.g., yourcompany.atlassian.net):");
+                          
+                          if (email && apiToken && domain) {
+                            const auth = useAuth();
+                            auth.setJiraCredentials(email, apiToken, domain);
+                          }
+                        }}
+                      >
+                        Connect
+                      </Button>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="title">Job Title</Label>
-                      <Input 
-                        id="title" 
-                        placeholder="Your job title" 
-                        value={accountInfo.title}
-                        onChange={(e) => handleAccountChange("title", e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="team">Team</Label>
-                      <Input 
-                        id="team" 
-                        placeholder="Your team" 
-                        value={accountInfo.team}
-                        onChange={(e) => handleAccountChange("team", e.target.value)}
-                      />
-                    </div>
-                    <Button className="mt-2" onClick={saveAccountChanges}>Save Changes</Button>
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button>Save changes</Button>
+                </CardFooter>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>

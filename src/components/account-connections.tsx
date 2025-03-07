@@ -15,7 +15,8 @@ import {
   Loader2,
   ExternalLink,
   Eye,
-  EyeOff
+  EyeOff,
+  Loader
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -31,19 +32,23 @@ const initialConnectionStatus = {
 };
 
 export function AccountConnections() {
-  const { 
-    isAuthenticated, 
-    user, 
-    accessToken, 
-    setGitHubToken, 
-    logout, 
-    loading,
-    isJiraAuthenticated,
-    jiraUser,
-    setJiraToken,
-    logoutJira,
-    jiraLoading
-  } = useAuth();
+  const auth = useAuth();
+  
+  // Safely access auth context properties
+  const isAuthenticated = auth?.isAuthenticated || false;
+  const user = auth?.user || null;
+  const accessToken = auth?.accessToken || null;
+  const setGitHubToken = auth?.setGitHubToken || (() => {});
+  const logout = auth?.logout || (() => {});
+  const loading = auth?.loading || false;
+  const isJiraAuthenticated = auth?.isJiraAuthenticated || false;
+  const jiraUser = auth?.jiraUser || null;
+  const jiraEmail = auth?.jiraEmail || null;
+  const jiraApiToken = auth?.jiraApiToken || null;
+  const jiraDomain = auth?.jiraDomain || null;
+  const setJiraCredentials = auth?.setJiraCredentials || (() => {});
+  const logoutJira = auth?.logoutJira || (() => {});
+  const jiraLoading = auth?.jiraLoading || false;
   
   const [connections, setConnections] = useState(initialConnectionStatus);
   const [showInfo, setShowInfo] = useState<string | null>(null);
@@ -52,12 +57,16 @@ export function AccountConnections() {
   const [jiraDisconnecting, setJiraDisconnecting] = useState(false);
   
   // Token input states
-  const [githubToken, setGithubTokenInput] = useState("");
-  const [jiraToken, setJiraTokenInput] = useState("");
+  const [githubToken, setGithubToken] = useState("");
   const [showGithubToken, setShowGithubToken] = useState(false);
-  const [showJiraToken, setShowJiraToken] = useState(false);
   const [connectingGithub, setConnectingGithub] = useState(false);
   const [connectingJira, setConnectingJira] = useState(false);
+  
+  // Atlassian input states
+  const [atlassianEmail, setAtlassianEmail] = useState("");
+  const [atlassianApiToken, setAtlassianApiToken] = useState("");
+  const [atlassianDomain, setAtlassianDomain] = useState("");
+  const [showAtlassianToken, setShowAtlassianToken] = useState(false);
   
   // Fetch GitHub data when authenticated
   useEffect(() => {
@@ -98,7 +107,7 @@ export function AccountConnections() {
     setConnectingGithub(true);
     try {
       setGitHubToken(githubToken);
-      setGithubTokenInput("");
+      setGithubToken("");
     } catch (error) {
       console.error("Error connecting GitHub:", error);
     } finally {
@@ -107,14 +116,24 @@ export function AccountConnections() {
   };
   
   const handleJiraConnect = async () => {
-    if (!jiraToken.trim()) return;
-    
-    setConnectingJira(true);
     try {
-      setJiraToken(jiraToken);
-      setJiraTokenInput("");
+      setConnectingJira(true);
+      
+      console.log("Connecting to Jira with domain:", atlassianDomain);
+      
+      if (atlassianEmail && atlassianApiToken && atlassianDomain) {
+        console.log("Setting Jira credentials from account connections");
+        setJiraCredentials(atlassianEmail, atlassianApiToken, atlassianDomain);
+        
+        // Clear the input fields after successful connection
+        setAtlassianEmail("");
+        setAtlassianApiToken("");
+        setAtlassianDomain("");
+      } else {
+        console.error("Missing Jira credentials");
+      }
     } catch (error) {
-      console.error("Error connecting Jira:", error);
+      console.error("Error connecting to Jira:", error);
     } finally {
       setConnectingJira(false);
     }
@@ -226,7 +245,7 @@ export function AccountConnections() {
                           type={showGithubToken ? "text" : "password"}
                           placeholder="Enter your GitHub personal access token"
                           value={githubToken}
-                          onChange={(e) => setGithubTokenInput(e.target.value)}
+                          onChange={(e) => setGithubToken(e.target.value)}
                         />
                         <button
                           type="button"
@@ -313,14 +332,17 @@ export function AccountConnections() {
               ) : isJiraAuthenticated ? (
                 <div className="space-y-4">
                   <div className="flex items-center space-x-2">
-                    <Check className="h-5 w-5 text-green-500" />
-                    <span className="text-sm font-medium">Connected as {jiraUser?.name || jiraUser?.email}</span>
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <span className="font-medium">Connected as</span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <div>
-                      <p className="text-sm font-medium">{jiraUser?.name || 'Atlassian User'}</p>
-                      <p className="text-xs text-muted-foreground">{jiraUser?.email || ''}</p>
-                    </div>
+                  
+                  <div className="space-y-2">
+                    {jiraUser && (
+                      <>
+                        <p className="font-medium">{jiraUser.displayName}</p>
+                        <p className="text-sm text-muted-foreground">{jiraEmail}</p>
+                      </>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -331,39 +353,59 @@ export function AccountConnections() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="jira-token">API Token</Label>
-                    <div className="flex">
-                      <div className="relative flex-grow">
-                        <Input
-                          id="jira-token"
-                          type={showJiraToken ? "text" : "password"}
-                          placeholder="Enter your Atlassian API token"
-                          value={jiraToken}
-                          onChange={(e) => setJiraTokenInput(e.target.value)}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowJiraToken(!showJiraToken)}
-                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500"
-                        >
-                          {showJiraToken ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
+                    <Label htmlFor="atlassian-email">Email</Label>
+                    <Input
+                      id="atlassian-email"
+                      type="email"
+                      placeholder="your.email@example.com"
+                      value={atlassianEmail}
+                      onChange={(e) => setAtlassianEmail(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="atlassian-token">API Token</Label>
+                    <div className="relative">
+                      <Input
+                        id="atlassian-token"
+                        type={showAtlassianToken ? "text" : "password"}
+                        placeholder="Enter your Atlassian API token"
+                        value={atlassianApiToken}
+                        onChange={(e) => setAtlassianApiToken(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAtlassianToken(!showAtlassianToken)}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500"
+                      >
+                        {showAtlassianToken ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      <a 
-                        href="https://id.atlassian.com/manage-profile/security/api-tokens" 
-                        target="_blank" 
+                      <a
+                        href="https://id.atlassian.com/manage-profile/security/api-tokens"
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary-600 hover:underline flex items-center"
                       >
                         Create an API token <ExternalLink className="h-3 w-3 ml-1" />
                       </a>
                     </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="atlassian-domain">Domain</Label>
+                    <Input
+                      id="atlassian-domain"
+                      type="text"
+                      placeholder="yourcompany.atlassian.net"
+                      value={atlassianDomain}
+                      onChange={(e) => setAtlassianDomain(e.target.value)}
+                    />
                   </div>
                 </div>
               )}
@@ -378,7 +420,7 @@ export function AccountConnections() {
                 >
                   {jiraDisconnecting ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader className="mr-2 h-4 w-4 animate-spin" />
                       Disconnecting...
                     </>
                   ) : (
@@ -389,11 +431,11 @@ export function AccountConnections() {
                 <Button 
                   className="w-full" 
                   onClick={handleJiraConnect}
-                  disabled={connectingJira || !jiraToken.trim()}
+                  disabled={!atlassianEmail || !atlassianApiToken || !atlassianDomain || connectingJira}
                 >
                   {connectingJira ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader className="mr-2 h-4 w-4 animate-spin" />
                       Connecting...
                     </>
                   ) : (

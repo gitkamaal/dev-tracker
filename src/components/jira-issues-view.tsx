@@ -6,49 +6,50 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchAccessibleResources, fetchAssignedIssues, fetchRecentActivity, fetchProjects, formatJiraIssue } from "@/lib/jira";
+import { 
+  fetchJiraAssignedIssues, 
+  fetchJiraCreatedIssues, 
+  fetchJiraCompletedIssues, 
+  fetchJiraProjects 
+} from "@/lib/atlassian";
 import { Trello, Clock, CheckCircle, AlertCircle, FolderKanban } from "lucide-react";
 
 export function JiraIssuesView() {
-  const { jiraAccessToken } = useAuth();
+  const auth = useAuth();
+  
+  // Safely access auth context properties
+  const isJiraAuthenticated = auth?.isJiraAuthenticated || false;
+  const jiraEmail = auth?.jiraEmail || null;
+  const jiraApiToken = auth?.jiraApiToken || null;
+  const jiraDomain = auth?.jiraDomain || null;
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cloudId, setCloudId] = useState<string | null>(null);
   const [assignedIssues, setAssignedIssues] = useState<any[]>([]);
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [createdIssues, setCreatedIssues] = useState<any[]>([]);
+  const [completedIssues, setCompletedIssues] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchJiraData = async () => {
-      if (!jiraAccessToken) return;
+      if (!isJiraAuthenticated || !jiraEmail || !jiraApiToken || !jiraDomain) return;
       
       setLoading(true);
       setError(null);
       
       try {
-        // First, get the accessible Jira sites
-        const resources = await fetchAccessibleResources(jiraAccessToken);
-        
-        if (resources.length === 0) {
-          setError("No Jira sites found. Please make sure you have access to at least one Jira site.");
-          setLoading(false);
-          return;
-        }
-        
-        // Use the first site (most users only have one)
-        const siteCloudId = resources[0].id;
-        setCloudId(siteCloudId);
-        
         // Fetch data in parallel
-        const [issues, activity, projectsData] = await Promise.all([
-          fetchAssignedIssues(jiraAccessToken, siteCloudId),
-          fetchRecentActivity(jiraAccessToken, siteCloudId),
-          fetchProjects(jiraAccessToken, siteCloudId)
+        const [assignedData, createdData, completedData, projectsData] = await Promise.all([
+          fetchJiraAssignedIssues(jiraEmail, jiraApiToken, jiraDomain),
+          fetchJiraCreatedIssues(jiraEmail, jiraApiToken, jiraDomain),
+          fetchJiraCompletedIssues(jiraEmail, jiraApiToken, jiraDomain),
+          fetchJiraProjects(jiraEmail, jiraApiToken, jiraDomain)
         ]);
         
-        setAssignedIssues(issues);
-        setRecentActivity(activity);
-        setProjects(projectsData);
+        setAssignedIssues(assignedData.issues || []);
+        setCreatedIssues(createdData.issues || []);
+        setCompletedIssues(completedData.issues || []);
+        setProjects(projectsData.values || []);
       } catch (err) {
         console.error("Error fetching Jira data:", err);
         setError("Failed to fetch Jira data. Please try again later.");
@@ -58,7 +59,7 @@ export function JiraIssuesView() {
     };
     
     fetchJiraData();
-  }, [jiraAccessToken]);
+  }, [isJiraAuthenticated, jiraEmail, jiraApiToken, jiraDomain]);
 
   if (loading) {
     return <JiraLoadingSkeleton />;
@@ -86,11 +87,15 @@ export function JiraIssuesView() {
         <TabsList className="w-full max-w-md mx-auto mb-6">
           <TabsTrigger value="assigned" className="flex items-center gap-2">
             <Trello className="h-4 w-4" />
-            <span>My Issues</span>
+            <span>Assigned</span>
           </TabsTrigger>
-          <TabsTrigger value="recent" className="flex items-center gap-2">
+          <TabsTrigger value="created" className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
-            <span>Recent Activity</span>
+            <span>Created</span>
+          </TabsTrigger>
+          <TabsTrigger value="completed" className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4" />
+            <span>Completed</span>
           </TabsTrigger>
           <TabsTrigger value="projects" className="flex items-center gap-2">
             <FolderKanban className="h-4 w-4" />
@@ -114,7 +119,7 @@ export function JiraIssuesView() {
               ) : (
                 <div className="space-y-4">
                   {assignedIssues.map((issue) => (
-                    <IssueCard key={issue.id} issue={issue} />
+                    <IssueCard key={issue.id} issue={issue} domain={jiraDomain!} />
                   ))}
                 </div>
               )}
@@ -122,23 +127,47 @@ export function JiraIssuesView() {
           </Card>
         </TabsContent>
         
-        <TabsContent value="recent" className="mt-0">
+        <TabsContent value="created" className="mt-0">
           <Card>
             <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
+              <CardTitle>Issues I Created</CardTitle>
               <CardDescription>
-                Issues updated in the last 7 days
+                Issues you've created in Jira
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {recentActivity.length === 0 ? (
+              {createdIssues.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
-                  No recent activity found.
+                  You haven't created any issues.
                 </p>
               ) : (
                 <div className="space-y-4">
-                  {recentActivity.map((issue) => (
-                    <IssueCard key={issue.id} issue={issue} />
+                  {createdIssues.map((issue) => (
+                    <IssueCard key={issue.id} issue={issue} domain={jiraDomain!} />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="completed" className="mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle>Completed Issues</CardTitle>
+              <CardDescription>
+                Issues you've completed
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {completedIssues.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  No completed issues found.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {completedIssues.map((issue) => (
+                    <IssueCard key={issue.id} issue={issue} domain={jiraDomain!} />
                   ))}
                 </div>
               )}
@@ -162,7 +191,7 @@ export function JiraIssuesView() {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {projects.map((project) => (
-                    <ProjectCard key={project.id} project={project} />
+                    <ProjectCard key={project.id} project={project} domain={jiraDomain!} />
                   ))}
                 </div>
               )}
@@ -174,9 +203,7 @@ export function JiraIssuesView() {
   );
 }
 
-function IssueCard({ issue }: { issue: any }) {
-  const formattedIssue = formatJiraIssue(issue);
-  
+function IssueCard({ issue, domain }: { issue: any, domain: string }) {
   return (
     <Card className="overflow-hidden">
       <div className="p-4 flex flex-col space-y-2">
@@ -184,40 +211,46 @@ function IssueCard({ issue }: { issue: any }) {
           <div>
             <h3 className="font-medium">
               <a 
-                href={formattedIssue.url} 
+                href={`https://${domain}/browse/${issue.key}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="hover:underline text-primary-600"
               >
-                {formattedIssue.key}: {formattedIssue.summary}
+                {issue.key}: {issue.fields.summary}
               </a>
             </h3>
             <div className="flex items-center mt-1 space-x-2 text-sm text-muted-foreground">
-              <span>Updated: {formattedIssue.updated}</span>
-              <span>•</span>
-              <span>Assignee: {formattedIssue.assignee}</span>
+              <span>Updated: {new Date(issue.fields.updated).toLocaleDateString()}</span>
+              {issue.fields.assignee && (
+                <>
+                  <span>•</span>
+                  <span>Assignee: {issue.fields.assignee.displayName}</span>
+                </>
+              )}
             </div>
           </div>
         </div>
         <div className="flex items-center space-x-2 mt-2">
-          <Badge variant={getStatusVariant(formattedIssue.status)}>
-            {formattedIssue.status}
+          <Badge variant={getStatusVariant(issue.fields.status.name)}>
+            {issue.fields.status.name}
           </Badge>
-          <Badge variant="outline">{formattedIssue.issueType}</Badge>
-          <Badge variant="outline">{formattedIssue.priority}</Badge>
+          <Badge variant="outline">{issue.fields.issuetype.name}</Badge>
+          {issue.fields.priority && (
+            <Badge variant="outline">{issue.fields.priority.name}</Badge>
+          )}
         </div>
       </div>
     </Card>
   );
 }
 
-function ProjectCard({ project }: { project: any }) {
+function ProjectCard({ project, domain }: { project: any, domain: string }) {
   return (
     <Card className="overflow-hidden">
       <div className="p-4">
         <h3 className="font-medium">
           <a 
-            href={`https://your-domain.atlassian.net/browse/${project.key}`} 
+            href={`https://${domain}/browse/${project.key}`} 
             target="_blank" 
             rel="noopener noreferrer"
             className="hover:underline text-primary-600"
@@ -248,20 +281,14 @@ function JiraLoadingSkeleton() {
       
       <div className="space-y-4">
         {Array(3).fill(0).map((_, i) => (
-          <Card key={i} className="overflow-hidden">
-            <div className="p-4 space-y-3">
-              <Skeleton className="h-5 w-full" />
-              <div className="flex space-x-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-24" />
-              </div>
-              <div className="flex space-x-2">
-                <Skeleton className="h-6 w-16" />
-                <Skeleton className="h-6 w-20" />
-                <Skeleton className="h-6 w-16" />
-              </div>
+          <div key={i} className="border rounded-lg p-4">
+            <Skeleton className="h-5 w-full max-w-md mb-2" />
+            <Skeleton className="h-4 w-32 mb-4" />
+            <div className="flex space-x-2">
+              <Skeleton className="h-6 w-16 rounded-full" />
+              <Skeleton className="h-6 w-20 rounded-full" />
             </div>
-          </Card>
+          </div>
         ))}
       </div>
     </div>

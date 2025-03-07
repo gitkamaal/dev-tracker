@@ -9,14 +9,21 @@ const JIRA_API_URL = 'https://api.atlassian.com';
  */
 export async function fetchUserProfile(accessToken: string): Promise<any> {
   try {
-    const response = await fetch(`${JIRA_API_URL}/me`, {
+    const response = await fetch(`${JIRA_API_URL}/myself`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
+        
       },
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch Jira user profile');
+      if (response.status === 401) {
+        throw new Error('Invalid or expired Atlassian token. Please generate a new token.');
+      } else if (response.status === 403) {
+        throw new Error('Insufficient permissions. Your token may not have the required scopes.');
+      } else {
+        throw new Error(`Failed to fetch Jira user profile: ${response.status} ${response.statusText}`);
+      }
     }
 
     return response.json();
