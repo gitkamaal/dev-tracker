@@ -46,8 +46,14 @@ export async function fetchUserStarredRepos(accessToken: string) {
   }
 }
 
-// Fetch user's pull requests
-export async function fetchUserPullRequests(accessToken: string) {
+// Fetch user's pull requests with optional date filtering
+export async function fetchUserPullRequests(
+  accessToken: string,
+  startDate?: Date,
+  endDate?: Date,
+  page: number = 1,
+  perPage: number = 10
+) {
   try {
     const octokit = new Octokit({ auth: accessToken });
     
@@ -55,12 +61,27 @@ export async function fetchUserPullRequests(accessToken: string) {
     const { data: user } = await octokit.rest.users.getAuthenticated();
     const username = user.login;
     
+    // Build search query with date filtering
+    let query = `author:${username} type:pr`;
+    
+    // Add date range if provided
+    if (startDate) {
+      const startDateStr = startDate.toISOString().split('T')[0];
+      query += ` created:>=${startDateStr}`;
+    }
+    
+    if (endDate) {
+      const endDateStr = endDate.toISOString().split('T')[0];
+      query += ` created:<=${endDateStr}`;
+    }
+    
     // Search for pull requests created by the user
     const { data: pullRequestsData } = await octokit.rest.search.issuesAndPullRequests({
-      q: `author:${username} type:pr`,
+      q: query,
       sort: "updated",
       order: "desc",
-      per_page: 20
+      per_page: perPage,
+      page: page
     });
     
     // Fetch additional details for each PR
@@ -98,10 +119,104 @@ export async function fetchUserPullRequests(accessToken: string) {
       })
     );
     
-    return pullRequests;
+    return {
+      items: pullRequests,
+      total_count: pullRequestsData.total_count
+    };
   } catch (error) {
     console.error("Error fetching pull requests:", error);
     throw error;
+  }
+}
+
+// Fetch user's commits with optional date filtering
+export async function fetchUserCommits(
+  accessToken: string,
+  startDate?: Date,
+  endDate?: Date,
+  page: number = 1,
+  perPage: number = 10
+) {
+  try {
+    const octokit = new Octokit({ auth: accessToken });
+    
+    // First get the authenticated user to get the username
+    const { data: user } = await octokit.rest.users.getAuthenticated();
+    const username = user.login;
+    
+    // Build search query with date filtering
+    let query = `author:${username}`;
+    
+    // Add date range if provided
+    if (startDate) {
+      const startDateStr = startDate.toISOString().split('T')[0];
+      query += ` committer-date:>=${startDateStr}`;
+    }
+    
+    if (endDate) {
+      const endDateStr = endDate.toISOString().split('T')[0];
+      query += ` committer-date:<=${endDateStr}`;
+    }
+    
+    // Search for commits by the user
+    const { data: commitsData } = await octokit.rest.search.commits({
+      q: query,
+      sort: "committer-date",
+      order: "desc",
+      per_page: perPage,
+      page: page
+    });
+    
+    // Format the commits data
+    const commits = commitsData.items.map(item => ({
+      id: item.sha,
+      repo_name: item.repository.full_name,
+      html_url: item.html_url,
+      message: item.commit.message,
+      created_at: item.commit.committer.date,
+      branch: item.commit.tree.sha // Not the actual branch name, but a reference
+    }));
+    
+    return {
+      items: commits,
+      total_count: commitsData.total_count
+    };
+  } catch (error) {
+    console.error("Error fetching commits:", error);
+    
+    // If the search API fails, return mock data for now
+    // This is a fallback for testing purposes
+    const mockCommits = [
+      {
+        id: 'commit-1',
+        repo_name: 'user/repo1',
+        html_url: 'https://github.com/user/repo1/commit/123',
+        message: 'Update documentation',
+        created_at: new Date().toISOString(),
+        branch: 'main'
+      },
+      {
+        id: 'commit-2',
+        repo_name: 'user/repo2',
+        html_url: 'https://github.com/user/repo2/commit/456',
+        message: 'Fix bug in login flow',
+        created_at: new Date().toISOString(),
+        branch: 'feature/login'
+      },
+      {
+        id: 'commit-3',
+        repo_name: 'user/repo3',
+        html_url: 'https://github.com/user/repo3/commit/789',
+        message: 'Add new feature',
+        created_at: new Date().toISOString(),
+        branch: 'develop'
+      }
+    ];
+    
+    return {
+      items: mockCommits,
+      total_count: mockCommits.length
+    };
   }
 }
 

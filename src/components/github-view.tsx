@@ -6,11 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchUserPullRequests } from "@/lib/github";
-import { Github, GitPullRequest, GitFork, AlertCircle, GitCommit, BarChart } from "lucide-react";
+import { fetchUserPullRequests, fetchUserCommits } from "@/lib/github";
+import { Github, GitPullRequest, GitFork, AlertCircle, GitCommit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { MetricsDisplay } from "@/components/metrics-display";
+import { FilterControls, FilterOptions } from "@/components/filter-controls";
+import { PaginationControls } from "@/components/pagination-controls";
 
 export function GitHubView() {
   const auth = useAuth();
@@ -20,67 +21,159 @@ export function GitHubView() {
   const user = auth?.user || null;
   const accessToken = auth?.accessToken || null;
   
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pullRequests, setPullRequests] = useState<any[]>([]);
   const [commits, setCommits] = useState<any[]>([]);
+  
+  // Pagination state
+  const [prCurrentPage, setPrCurrentPage] = useState(1);
+  const [prTotalPages, setPrTotalPages] = useState(1);
+  const [prTotalItems, setPrTotalItems] = useState(0);
+  
+  const [commitCurrentPage, setCommitCurrentPage] = useState(1);
+  const [commitTotalPages, setCommitTotalPages] = useState(1);
+  const [commitTotalItems, setCommitTotalItems] = useState(0);
+  
+  // Filter state
+  const [prFilters, setPrFilters] = useState<FilterOptions>({});
+  const [commitFilters, setCommitFilters] = useState<FilterOptions>({});
+  
+  // Track if filters have been applied
+  const [prFiltersApplied, setPrFiltersApplied] = useState(false);
+  const [commitFiltersApplied, setCommitFiltersApplied] = useState(false);
+  
+  const PAGE_SIZE = 10;
 
+  // Initial data fetch - removed to not show items until filters are applied
   useEffect(() => {
-    const fetchGitHubData = async () => {
-      if (!isAuthenticated || !accessToken) {
-        setLoading(false);
-        return;
-      }
-      
-      setLoading(true);
-      setError(null);
-      
-      try {
-        // Fetch pull requests
-        const prsData = await fetchUserPullRequests(accessToken);
-        setPullRequests(prsData || []);
-        
-        // For commits, we'll use a simplified approach for now
-        // In a real implementation, you'd fetch actual commit data
-        // This is just to show something in the UI
-        const mockCommits = [
-          {
-            id: 'commit-1',
-            repo_name: 'user/repo1',
-            html_url: 'https://github.com/user/repo1/commit/123',
-            message: 'Update documentation',
-            created_at: new Date().toISOString(),
-            branch: 'main'
-          },
-          {
-            id: 'commit-2',
-            repo_name: 'user/repo2',
-            html_url: 'https://github.com/user/repo2/commit/456',
-            message: 'Fix bug in login flow',
-            created_at: new Date().toISOString(),
-            branch: 'feature/login'
-          },
-          {
-            id: 'commit-3',
-            repo_name: 'user/repo3',
-            html_url: 'https://github.com/user/repo3/commit/789',
-            message: 'Add new feature',
-            created_at: new Date().toISOString(),
-            branch: 'develop'
-          }
-        ];
-        
-        setCommits(mockCommits);
-      } catch (err) {
-        console.error("Error fetching GitHub data:", err);
-        setError("Failed to fetch GitHub data. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (!isAuthenticated || !accessToken) {
+      setInitialLoading(false);
+      return;
+    }
     
-    fetchGitHubData();
+    // Just set loading to false, don't fetch any data initially
+    setInitialLoading(false);
   }, [isAuthenticated, accessToken]);
+
+  // Handle pull requests search
+  const handlePrSearch = async (filters: FilterOptions) => {
+    console.log("GitHub PR search triggered with filters:", filters);
+    if (!isAuthenticated || !accessToken) return;
+    
+    setLoading(true);
+    setError(null);
+    setPrFilters(filters);
+    setPrCurrentPage(1); // Reset to first page on new search
+    setPrFiltersApplied(true); // Mark that filters have been applied
+    
+    try {
+      console.log("Fetching PRs with:", { accessToken, from: filters.dateRange?.from, to: filters.dateRange?.to });
+      const prsData = await fetchUserPullRequests(
+        accessToken,
+        filters.dateRange?.from,
+        filters.dateRange?.to,
+        1,
+        PAGE_SIZE
+      );
+      
+      console.log("PR data received:", prsData);
+      setPullRequests(prsData.items || []);
+      setPrTotalItems(prsData.total_count || 0);
+      setPrTotalPages(Math.ceil((prsData.total_count || 0) / PAGE_SIZE));
+    } catch (err) {
+      console.error("Error searching GitHub pull requests:", err);
+      setError("Failed to search pull requests. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Handle commits search
+  const handleCommitSearch = async (filters: FilterOptions) => {
+    console.log("GitHub commit search triggered with filters:", filters);
+    if (!isAuthenticated || !accessToken) return;
+    
+    setLoading(true);
+    setError(null);
+    setCommitFilters(filters);
+    setCommitCurrentPage(1); // Reset to first page on new search
+    setCommitFiltersApplied(true); // Mark that filters have been applied
+    
+    try {
+      console.log("Fetching commits with:", { accessToken, from: filters.dateRange?.from, to: filters.dateRange?.to });
+      const commitsData = await fetchUserCommits(
+        accessToken,
+        filters.dateRange?.from,
+        filters.dateRange?.to,
+        1,
+        PAGE_SIZE
+      );
+      
+      console.log("Commit data received:", commitsData);
+      setCommits(commitsData.items || []);
+      setCommitTotalItems(commitsData.total_count || 0);
+      setCommitTotalPages(Math.ceil((commitsData.total_count || 0) / PAGE_SIZE));
+    } catch (err) {
+      console.error("Error searching GitHub commits:", err);
+      setError("Failed to search commits. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Handle pull requests page change
+  const handlePrPageChange = async (page: number) => {
+    if (!isAuthenticated || !accessToken) return;
+    
+    setLoading(true);
+    setError(null);
+    setPrCurrentPage(page);
+    
+    try {
+      const prsData = await fetchUserPullRequests(
+        accessToken,
+        prFilters.dateRange?.from,
+        prFilters.dateRange?.to,
+        page,
+        PAGE_SIZE
+      );
+      
+      setPullRequests(prsData.items || []);
+    } catch (err) {
+      console.error("Error fetching GitHub pull requests page:", err);
+      setError("Failed to fetch pull requests page. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Handle commits page change
+  const handleCommitPageChange = async (page: number) => {
+    if (!isAuthenticated || !accessToken) return;
+    
+    setLoading(true);
+    setError(null);
+    setCommitCurrentPage(page);
+    
+    try {
+      const commitsData = await fetchUserCommits(
+        accessToken,
+        commitFilters.dateRange?.from,
+        commitFilters.dateRange?.to,
+        page,
+        PAGE_SIZE
+      );
+      
+      setCommits(commitsData.items || []);
+    } catch (err) {
+      console.error("Error fetching GitHub commits page:", err);
+      setError("Failed to fetch commits page. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!isAuthenticated) {
     return (
@@ -104,7 +197,7 @@ export function GitHubView() {
     );
   }
 
-  if (loading) {
+  if (initialLoading) {
     return <GitHubLoadingSkeleton />;
   }
 
@@ -127,7 +220,7 @@ export function GitHubView() {
   return (
     <div className="space-y-8">
       <Tabs defaultValue="pullrequests" className="w-full">
-        <TabsList className="w-full max-w-sm mx-auto mb-6">
+        <TabsList className="w-full max-w-xs mx-auto mb-6">
           <TabsTrigger value="pullrequests" className="flex items-center gap-2">
             <GitPullRequest className="h-4 w-4" />
             <span>Pull Requests</span>
@@ -135,10 +228,6 @@ export function GitHubView() {
           <TabsTrigger value="commits" className="flex items-center gap-2">
             <GitCommit className="h-4 w-4" />
             <span>Commits</span>
-          </TabsTrigger>
-          <TabsTrigger value="metrics" className="flex items-center gap-2">
-            <BarChart className="h-4 w-4" />
-            <span>Metrics</span>
           </TabsTrigger>
         </TabsList>
         
@@ -151,16 +240,56 @@ export function GitHubView() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {pullRequests.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No pull requests found.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {pullRequests.map((pr) => (
-                    <PullRequestCard key={pr.id} pr={pr} />
+              <FilterControls 
+                onSearch={handlePrSearch} 
+                isLoading={loading} 
+              />
+              
+              {loading && (
+                <div className="space-y-4 mt-4">
+                  {Array(3).fill(0).map((_, i) => (
+                    <div key={i} className="border rounded-lg p-4">
+                      <Skeleton className="h-5 w-full max-w-md mb-2" />
+                      <Skeleton className="h-4 w-32 mb-4" />
+                      <div className="flex space-x-2">
+                        <Skeleton className="h-6 w-16 rounded-full" />
+                        <Skeleton className="h-6 w-20 rounded-full" />
+                      </div>
+                    </div>
                   ))}
                 </div>
+              )}
+              
+              {!loading && !prFiltersApplied && (
+                <p className="text-center text-muted-foreground py-8">
+                  Select a date range and click "Apply Filter" to see pull requests.
+                </p>
+              )}
+              
+              {!loading && prFiltersApplied && pullRequests.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">
+                  No pull requests found matching your criteria.
+                </p>
+              )}
+              
+              {!loading && prFiltersApplied && pullRequests.length > 0 && (
+                <>
+                  <div className="space-y-4">
+                    {pullRequests.map((pr) => (
+                      <PullRequestCard key={pr.id} pr={pr} />
+                    ))}
+                  </div>
+                  
+                  <div className="mt-4 text-sm text-muted-foreground text-center">
+                    Showing {pullRequests.length} of {prTotalItems} pull requests
+                  </div>
+                  
+                  <PaginationControls
+                    currentPage={prCurrentPage}
+                    totalPages={prTotalPages}
+                    onPageChange={handlePrPageChange}
+                  />
+                </>
               )}
             </CardContent>
           </Card>
@@ -175,23 +304,59 @@ export function GitHubView() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {commits.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No recent commits found.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {commits.map((commit) => (
-                    <CommitCard key={commit.id} commit={commit} />
+              <FilterControls 
+                onSearch={handleCommitSearch} 
+                isLoading={loading} 
+              />
+              
+              {loading && (
+                <div className="space-y-4 mt-4">
+                  {Array(3).fill(0).map((_, i) => (
+                    <div key={i} className="border rounded-lg p-4">
+                      <Skeleton className="h-5 w-full max-w-md mb-2" />
+                      <Skeleton className="h-4 w-32 mb-4" />
+                      <div className="flex space-x-2">
+                        <Skeleton className="h-6 w-16 rounded-full" />
+                        <Skeleton className="h-6 w-20 rounded-full" />
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
+              
+              {!loading && !commitFiltersApplied && (
+                <p className="text-center text-muted-foreground py-8">
+                  Select a date range and click "Apply Filter" to see commits.
+                </p>
+              )}
+              
+              {!loading && commitFiltersApplied && commits.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">
+                  No commits found matching your criteria.
+                </p>
+              )}
+              
+              {!loading && commitFiltersApplied && commits.length > 0 && (
+                <>
+                  <div className="space-y-4">
+                    {commits.map((commit) => (
+                      <CommitCard key={commit.id} commit={commit} />
+                    ))}
+                  </div>
+                  
+                  <div className="mt-4 text-sm text-muted-foreground text-center">
+                    Showing {commits.length} of {commitTotalItems} commits
+                  </div>
+                  
+                  <PaginationControls
+                    currentPage={commitCurrentPage}
+                    totalPages={commitTotalPages}
+                    onPageChange={handleCommitPageChange}
+                  />
+                </>
+              )}
             </CardContent>
           </Card>
-        </TabsContent>
-        
-        <TabsContent value="metrics" className="mt-0">
-          <MetricsDisplay />
         </TabsContent>
       </Tabs>
     </div>

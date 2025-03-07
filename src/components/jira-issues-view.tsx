@@ -13,6 +13,9 @@ import {
 import { CheckCircle, AlertCircle, Clock, Trello } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { FilterControls, FilterOptions } from "@/components/filter-controls";
+import { PaginationControls } from "@/components/pagination-controls";
+import { DateRange } from "react-day-picker";
 
 export function JiraIssuesView() {
   const auth = useAuth();
@@ -23,37 +26,161 @@ export function JiraIssuesView() {
   const jiraApiToken = auth?.jiraApiToken || null;
   const jiraDomain = auth?.jiraDomain || null;
   
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createdIssues, setCreatedIssues] = useState<any[]>([]);
   const [completedIssues, setCompletedIssues] = useState<any[]>([]);
+  
+  // Pagination state
+  const [createdCurrentPage, setCreatedCurrentPage] = useState(1);
+  const [createdTotalPages, setCreatedTotalPages] = useState(1);
+  const [createdTotalItems, setCreatedTotalItems] = useState(0);
+  
+  const [completedCurrentPage, setCompletedCurrentPage] = useState(1);
+  const [completedTotalPages, setCompletedTotalPages] = useState(1);
+  const [completedTotalItems, setCompletedTotalItems] = useState(0);
+  
+  // Filter state
+  const [createdFilters, setCreatedFilters] = useState<FilterOptions>({});
+  const [completedFilters, setCompletedFilters] = useState<FilterOptions>({});
+  
+  // Track if filters have been applied
+  const [createdFiltersApplied, setCreatedFiltersApplied] = useState(false);
+  const [completedFiltersApplied, setCompletedFiltersApplied] = useState(false);
+  
+  const PAGE_SIZE = 10;
 
+  // Initial data fetch - removed to not show items until filters are applied
   useEffect(() => {
-    const fetchJiraData = async () => {
-      if (!isJiraAuthenticated || !jiraEmail || !jiraApiToken || !jiraDomain) return;
-      
-      setLoading(true);
-      setError(null);
-      
-      try {
-        // Fetch data in parallel
-        const [createdData, completedData] = await Promise.all([
-          fetchJiraCreatedIssues(jiraEmail, jiraApiToken, jiraDomain),
-          fetchJiraCompletedIssues(jiraEmail, jiraApiToken, jiraDomain)
-        ]);
-        
-        setCreatedIssues(createdData.issues || []);
-        setCompletedIssues(completedData.issues || []);
-      } catch (err) {
-        console.error("Error fetching Jira data:", err);
-        setError("Failed to fetch Jira data. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (!isJiraAuthenticated || !jiraEmail || !jiraApiToken || !jiraDomain) {
+      setInitialLoading(false);
+      return;
+    }
     
-    fetchJiraData();
+    // Just set loading to false, don't fetch any data initially
+    setInitialLoading(false);
   }, [isJiraAuthenticated, jiraEmail, jiraApiToken, jiraDomain]);
+
+  // Handle created issues search
+  const handleCreatedSearch = async (filters: FilterOptions) => {
+    if (!isJiraAuthenticated || !jiraEmail || !jiraApiToken || !jiraDomain) return;
+    
+    setLoading(true);
+    setError(null);
+    setCreatedFilters(filters);
+    setCreatedCurrentPage(1); // Reset to first page on new search
+    setCreatedFiltersApplied(true); // Mark that filters have been applied
+    
+    try {
+      const createdData = await fetchJiraCreatedIssues(
+        jiraEmail, 
+        jiraDomain,
+        filters.dateRange?.from as Date | undefined,
+        filters.dateRange?.to as Date | undefined,
+        1,
+        PAGE_SIZE,
+        jiraApiToken
+      );
+      
+      setCreatedIssues(createdData.issues || []);
+      setCreatedTotalItems(createdData.total || 0);
+      setCreatedTotalPages(Math.ceil((createdData.total || 0) / PAGE_SIZE));
+    } catch (err) {
+      console.error("Error searching Jira created issues:", err);
+      setError("Failed to search Jira issues. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Handle completed issues search
+  const handleCompletedSearch = async (filters: FilterOptions) => {
+    if (!isJiraAuthenticated || !jiraEmail || !jiraApiToken || !jiraDomain) return;
+    
+    setLoading(true);
+    setError(null);
+    setCompletedFilters(filters);
+    setCompletedCurrentPage(1); // Reset to first page on new search
+    setCompletedFiltersApplied(true); // Mark that filters have been applied
+    
+    try {
+      const completedData = await fetchJiraCompletedIssues(
+        jiraEmail, 
+        jiraDomain,
+        filters.dateRange?.from as Date | undefined,
+        filters.dateRange?.to as Date | undefined,
+        1,
+        PAGE_SIZE,
+        jiraApiToken
+      );
+      
+      setCompletedIssues(completedData.issues || []);
+      setCompletedTotalItems(completedData.total || 0);
+      setCompletedTotalPages(Math.ceil((completedData.total || 0) / PAGE_SIZE));
+    } catch (err) {
+      console.error("Error searching Jira completed issues:", err);
+      setError("Failed to search Jira issues. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Handle created issues page change
+  const handleCreatedPageChange = async (page: number) => {
+    if (!isJiraAuthenticated || !jiraEmail || !jiraApiToken || !jiraDomain) return;
+    
+    setLoading(true);
+    setError(null);
+    setCreatedCurrentPage(page);
+    
+    try {
+      const createdData = await fetchJiraCreatedIssues(
+        jiraEmail, 
+        jiraDomain,
+        createdFilters.dateRange?.from as Date | undefined,
+        createdFilters.dateRange?.to as Date | undefined,
+        page,
+        PAGE_SIZE,
+        jiraApiToken
+      );
+      
+      setCreatedIssues(createdData.issues || []);
+    } catch (err) {
+      console.error("Error fetching Jira created issues page:", err);
+      setError("Failed to fetch issues page. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Handle completed issues page change
+  const handleCompletedPageChange = async (page: number) => {
+    if (!isJiraAuthenticated || !jiraEmail || !jiraApiToken || !jiraDomain) return;
+    
+    setLoading(true);
+    setError(null);
+    setCompletedCurrentPage(page);
+    
+    try {
+      const completedData = await fetchJiraCompletedIssues(
+        jiraEmail, 
+        jiraDomain,
+        completedFilters.dateRange?.from as Date | undefined,
+        completedFilters.dateRange?.to as Date | undefined,
+        page,
+        PAGE_SIZE,
+        jiraApiToken
+      );
+      
+      setCompletedIssues(completedData.issues || []);
+    } catch (err) {
+      console.error("Error fetching Jira completed issues page:", err);
+      setError("Failed to fetch issues page. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!isJiraAuthenticated) {
     return (
@@ -77,7 +204,7 @@ export function JiraIssuesView() {
     );
   }
 
-  if (loading) {
+  if (initialLoading) {
     return <JiraLoadingSkeleton />;
   }
 
@@ -120,16 +247,56 @@ export function JiraIssuesView() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {createdIssues.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  You haven't created any issues.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {createdIssues.map((issue) => (
-                    <IssueCard key={issue.id} issue={issue} domain={jiraDomain!} />
+              <FilterControls 
+                onSearch={handleCreatedSearch} 
+                isLoading={loading} 
+              />
+              
+              {loading && (
+                <div className="space-y-4 mt-4">
+                  {Array(3).fill(0).map((_, i) => (
+                    <div key={i} className="border rounded-lg p-4">
+                      <Skeleton className="h-5 w-full max-w-md mb-2" />
+                      <Skeleton className="h-4 w-32 mb-4" />
+                      <div className="flex space-x-2">
+                        <Skeleton className="h-6 w-16 rounded-full" />
+                        <Skeleton className="h-6 w-20 rounded-full" />
+                      </div>
+                    </div>
                   ))}
                 </div>
+              )}
+              
+              {!loading && !createdFiltersApplied && (
+                <p className="text-center text-muted-foreground py-8">
+                  Select a date range and click "Apply Filter" to see issues.
+                </p>
+              )}
+              
+              {!loading && createdFiltersApplied && createdIssues.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">
+                  No issues found matching your criteria.
+                </p>
+              )}
+              
+              {!loading && createdFiltersApplied && createdIssues.length > 0 && (
+                <>
+                  <div className="space-y-4">
+                    {createdIssues.map((issue) => (
+                      <IssueCard key={issue.id} issue={issue} domain={jiraDomain!} />
+                    ))}
+                  </div>
+                  
+                  <div className="mt-4 text-sm text-muted-foreground text-center">
+                    Showing {createdIssues.length} of {createdTotalItems} issues
+                  </div>
+                  
+                  <PaginationControls
+                    currentPage={createdCurrentPage}
+                    totalPages={createdTotalPages}
+                    onPageChange={handleCreatedPageChange}
+                  />
+                </>
               )}
             </CardContent>
           </Card>
@@ -144,16 +311,56 @@ export function JiraIssuesView() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {completedIssues.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No completed issues found.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {completedIssues.map((issue) => (
-                    <IssueCard key={issue.id} issue={issue} domain={jiraDomain!} />
+              <FilterControls 
+                onSearch={handleCompletedSearch} 
+                isLoading={loading} 
+              />
+              
+              {loading && (
+                <div className="space-y-4 mt-4">
+                  {Array(3).fill(0).map((_, i) => (
+                    <div key={i} className="border rounded-lg p-4">
+                      <Skeleton className="h-5 w-full max-w-md mb-2" />
+                      <Skeleton className="h-4 w-32 mb-4" />
+                      <div className="flex space-x-2">
+                        <Skeleton className="h-6 w-16 rounded-full" />
+                        <Skeleton className="h-6 w-20 rounded-full" />
+                      </div>
+                    </div>
                   ))}
                 </div>
+              )}
+              
+              {!loading && !completedFiltersApplied && (
+                <p className="text-center text-muted-foreground py-8">
+                  Select a date range and click "Apply Filter" to see issues.
+                </p>
+              )}
+              
+              {!loading && completedFiltersApplied && completedIssues.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">
+                  No issues found matching your criteria.
+                </p>
+              )}
+              
+              {!loading && completedFiltersApplied && completedIssues.length > 0 && (
+                <>
+                  <div className="space-y-4">
+                    {completedIssues.map((issue) => (
+                      <IssueCard key={issue.id} issue={issue} domain={jiraDomain!} />
+                    ))}
+                  </div>
+                  
+                  <div className="mt-4 text-sm text-muted-foreground text-center">
+                    Showing {completedIssues.length} of {completedTotalItems} issues
+                  </div>
+                  
+                  <PaginationControls
+                    currentPage={completedCurrentPage}
+                    totalPages={completedTotalPages}
+                    onPageChange={handleCompletedPageChange}
+                  />
+                </>
               )}
             </CardContent>
           </Card>

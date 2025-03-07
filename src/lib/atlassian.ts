@@ -72,6 +72,36 @@ async function makeProxyRequest(url: string, email: string, apiToken: string, me
   }
 }
 
+// Helper function to make API requests through our proxy with token auth
+async function makeProxyRequestWithToken(url: string, token: string, method: string = 'GET', body?: any) {
+  console.log(`Making proxy request with token to: ${url}`);
+  
+  try {
+    const response = await fetch('/api/atlassian', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url,
+        token,
+        method,
+        body,
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error("Proxy request failed:", error);
+    throw error;
+  }
+}
+
 /**
  * Atlassian API utilities for Jira, Confluence, and Bitbucket
  */
@@ -129,15 +159,46 @@ export async function fetchJiraAssignedIssues(email: string, apiToken: string, d
 }
 
 /**
- * Fetch issues created by the user
+ * Fetch issues created by the user with optional date filtering (token-based auth)
  */
-export async function fetchJiraCreatedIssues(email: string, apiToken: string, domain: string) {
+export async function fetchJiraCreatedIssues(
+  tokenOrEmail: string, 
+  domain: string,
+  startDate?: Date,
+  endDate?: Date,
+  page: number = 1,
+  pageSize: number = 10,
+  apiToken?: string
+) {
   const formattedDomain = formatDomain(domain);
-  const jql = encodeURIComponent("reporter = currentUser() ORDER BY created DESC");
-  const url = `https://${formattedDomain}/rest/api/2/search?jql=${jql}&maxResults=20`;
+  
+  // Build JQL query with date filtering if provided
+  let jql = "reporter = currentUser()";
+  
+  // Add date range if provided
+  if (startDate) {
+    const startDateStr = startDate.toISOString().split('T')[0];
+    jql += ` AND created >= "${startDateStr}"`;
+  }
+  
+  if (endDate) {
+    const endDateStr = endDate.toISOString().split('T')[0];
+    jql += ` AND created <= "${endDateStr}"`;
+  }
+  
+  // Add sorting and pagination
+  jql += " ORDER BY created DESC";
+  const startAt = (page - 1) * pageSize;
+  
+  const url = `https://${formattedDomain}/rest/api/2/search?jql=${encodeURIComponent(jql)}&maxResults=${pageSize}&startAt=${startAt}`;
   
   try {
-    return await makeProxyRequest(url, email, apiToken);
+    // If apiToken is provided, use email/apiToken auth, otherwise use token auth
+    if (apiToken) {
+      return await makeProxyRequest(url, tokenOrEmail, apiToken);
+    } else {
+      return await makeProxyRequestWithToken(url, tokenOrEmail);
+    }
   } catch (error) {
     console.error("Error in fetchJiraCreatedIssues:", error);
     throw error;
@@ -145,15 +206,46 @@ export async function fetchJiraCreatedIssues(email: string, apiToken: string, do
 }
 
 /**
- * Fetch issues completed by the user
+ * Fetch issues completed by the user with optional date filtering (token-based auth)
  */
-export async function fetchJiraCompletedIssues(email: string, apiToken: string, domain: string) {
+export async function fetchJiraCompletedIssues(
+  tokenOrEmail: string, 
+  domain: string,
+  startDate?: Date,
+  endDate?: Date,
+  page: number = 1,
+  pageSize: number = 10,
+  apiToken?: string
+) {
   const formattedDomain = formatDomain(domain);
-  const jql = encodeURIComponent("assignee = currentUser() AND status = Done ORDER BY updated DESC");
-  const url = `https://${formattedDomain}/rest/api/2/search?jql=${jql}&maxResults=20`;
+  
+  // Build JQL query with date filtering if provided
+  let jql = "assignee = currentUser() AND status in (Done, Closed, Resolved)";
+  
+  // Add date range if provided
+  if (startDate) {
+    const startDateStr = startDate.toISOString().split('T')[0];
+    jql += ` AND resolutiondate >= "${startDateStr}"`;
+  }
+  
+  if (endDate) {
+    const endDateStr = endDate.toISOString().split('T')[0];
+    jql += ` AND resolutiondate <= "${endDateStr}"`;
+  }
+  
+  // Add sorting and pagination
+  jql += " ORDER BY updated DESC";
+  const startAt = (page - 1) * pageSize;
+  
+  const url = `https://${formattedDomain}/rest/api/2/search?jql=${encodeURIComponent(jql)}&maxResults=${pageSize}&startAt=${startAt}`;
   
   try {
-    return await makeProxyRequest(url, email, apiToken);
+    // If apiToken is provided, use email/apiToken auth, otherwise use token auth
+    if (apiToken) {
+      return await makeProxyRequest(url, tokenOrEmail, apiToken);
+    } else {
+      return await makeProxyRequestWithToken(url, tokenOrEmail);
+    }
   } catch (error) {
     console.error("Error in fetchJiraCompletedIssues:", error);
     throw error;

@@ -3,27 +3,37 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { url, email, apiToken, method = 'GET', body: requestBody } = body;
+    const { url, email, apiToken, token, method = 'GET', body: requestBody } = body;
     
-    if (!url || !email || !apiToken) {
+    // Check if we have either token or email+apiToken
+    if (!url || (!token && (!email || !apiToken))) {
       return NextResponse.json(
-        { error: 'URL, email, and API token are required' },
+        { error: 'URL and either token or email+apiToken are required' },
         { status: 400 }
       );
     }
     
     console.log(`Proxying request to: ${url}`);
     
-    // Create Basic Auth header
-    const credentials = `${email}:${apiToken}`;
-    const encodedCredentials = Buffer.from(credentials).toString('base64');
-    
+    // Create headers based on authentication method
     const headers: HeadersInit = {
-      'Authorization': `Basic ${encodedCredentials}`,
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       'User-Agent': 'DevTracker/1.0'
     };
+    
+    // Add authentication header based on provided credentials
+    if (token) {
+      // Bearer token authentication
+      headers['Authorization'] = `Bearer ${token}`;
+      console.log('Using Bearer token authentication');
+    } else {
+      // Basic authentication
+      const credentials = `${email}:${apiToken}`;
+      const encodedCredentials = Buffer.from(credentials).toString('base64');
+      headers['Authorization'] = `Basic ${encodedCredentials}`;
+      console.log('Using Basic authentication');
+    }
     
     const fetchOptions: RequestInit = {
       method,
