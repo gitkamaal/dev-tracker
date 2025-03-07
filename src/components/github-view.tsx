@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchUserRepositories, fetchUserPullRequests } from "@/lib/github";
-import { Github, GitPullRequest, GitFork, FolderKanban, AlertCircle, GitCommit, BarChart } from "lucide-react";
+import { fetchUserPullRequests } from "@/lib/github";
+import { Github, GitPullRequest, GitFork, AlertCircle, GitCommit, BarChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { MetricsDisplay } from "@/components/metrics-display";
@@ -22,7 +22,6 @@ export function GitHubView() {
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [repositories, setRepositories] = useState<any[]>([]);
   const [pullRequests, setPullRequests] = useState<any[]>([]);
   const [commits, setCommits] = useState<any[]>([]);
 
@@ -37,26 +36,39 @@ export function GitHubView() {
       setError(null);
       
       try {
-        // Fetch repositories and pull requests
-        const [reposData, prsData] = await Promise.all([
-          fetchUserRepositories(accessToken),
-          fetchUserPullRequests(accessToken)
-        ]);
-        
-        setRepositories(reposData || []);
+        // Fetch pull requests
+        const prsData = await fetchUserPullRequests(accessToken);
         setPullRequests(prsData || []);
         
         // For commits, we'll use a simplified approach for now
         // In a real implementation, you'd fetch actual commit data
         // This is just to show something in the UI
-        const mockCommits = reposData.slice(0, 5).map(repo => ({
-          id: `commit-${repo.id}`,
-          repo_name: repo.full_name,
-          html_url: repo.html_url,
-          message: `Update to ${repo.name}`,
-          created_at: repo.updated_at,
-          branch: repo.default_branch
-        }));
+        const mockCommits = [
+          {
+            id: 'commit-1',
+            repo_name: 'user/repo1',
+            html_url: 'https://github.com/user/repo1/commit/123',
+            message: 'Update documentation',
+            created_at: new Date().toISOString(),
+            branch: 'main'
+          },
+          {
+            id: 'commit-2',
+            repo_name: 'user/repo2',
+            html_url: 'https://github.com/user/repo2/commit/456',
+            message: 'Fix bug in login flow',
+            created_at: new Date().toISOString(),
+            branch: 'feature/login'
+          },
+          {
+            id: 'commit-3',
+            repo_name: 'user/repo3',
+            html_url: 'https://github.com/user/repo3/commit/789',
+            message: 'Add new feature',
+            created_at: new Date().toISOString(),
+            branch: 'develop'
+          }
+        ];
         
         setCommits(mockCommits);
       } catch (err) {
@@ -114,49 +126,21 @@ export function GitHubView() {
 
   return (
     <div className="space-y-8">
-      <Tabs defaultValue="repositories" className="w-full">
-        <TabsList className="flex bg-gray-100 dark:bg-gray-800 rounded-md mb-6">
-          <TabsTrigger value="repositories" className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 data-[state=active]:text-primary-600 dark:data-[state=active]:text-primary-400">
-            <FolderKanban className="h-4 w-4" />
-            <span>Repositories</span>
-          </TabsTrigger>
-          <TabsTrigger value="pullrequests" className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 data-[state=active]:text-primary-600 dark:data-[state=active]:text-primary-400">
+      <Tabs defaultValue="pullrequests" className="w-full">
+        <TabsList className="w-full max-w-sm mx-auto mb-6">
+          <TabsTrigger value="pullrequests" className="flex items-center gap-2">
             <GitPullRequest className="h-4 w-4" />
             <span>Pull Requests</span>
           </TabsTrigger>
-          <TabsTrigger value="commits" className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 data-[state=active]:text-primary-600 dark:data-[state=active]:text-primary-400">
+          <TabsTrigger value="commits" className="flex items-center gap-2">
             <GitCommit className="h-4 w-4" />
             <span>Commits</span>
           </TabsTrigger>
-          <TabsTrigger value="metrics" className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 data-[state=active]:text-primary-600 dark:data-[state=active]:text-primary-400">
+          <TabsTrigger value="metrics" className="flex items-center gap-2">
             <BarChart className="h-4 w-4" />
             <span>Metrics</span>
           </TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="repositories" className="mt-0">
-          <Card>
-            <CardHeader>
-              <CardTitle>My Repositories</CardTitle>
-              <CardDescription>
-                Repositories you own or have access to
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {repositories.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  You don't have any repositories yet.
-                </p>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {repositories.map((repo) => (
-                    <RepoCard key={repo.id} repo={repo} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
         
         <TabsContent value="pullrequests" className="mt-0">
           <Card>
@@ -211,40 +195,6 @@ export function GitHubView() {
         </TabsContent>
       </Tabs>
     </div>
-  );
-}
-
-function RepoCard({ repo }: { repo: any }) {
-  return (
-    <Card className="overflow-hidden">
-      <div className="p-4">
-        <h3 className="font-medium">
-          <a 
-            href={repo.html_url} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="hover:underline text-primary-600"
-          >
-            {repo.full_name}
-          </a>
-        </h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          {repo.description || "No description provided"}
-        </p>
-        <div className="flex items-center space-x-4 mt-3">
-          <div className="flex items-center">
-            <GitFork className="h-4 w-4 mr-1 text-blue-500" />
-            <span className="text-xs">{repo.forks_count}</span>
-          </div>
-          {repo.language && (
-            <div className="flex items-center">
-              <span className="h-3 w-3 rounded-full bg-primary-500 mr-1"></span>
-              <span className="text-xs">{repo.language}</span>
-            </div>
-          )}
-        </div>
-      </div>
-    </Card>
   );
 }
 

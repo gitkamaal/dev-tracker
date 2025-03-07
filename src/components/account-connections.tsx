@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { fetchUserRepositories, fetchUserContributions } from "@/lib/github"
+import { fetchUserRepositories } from "@/lib/github"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -73,15 +73,12 @@ export function AccountConnections() {
     const fetchGitHubData = async () => {
       if (isAuthenticated && accessToken && user) {
         try {
-          // Fetch repositories and contributions in parallel
-          const [repos, contributions] = await Promise.all([
-            fetchUserRepositories(accessToken),
-            fetchUserContributions(accessToken)
-          ]);
+          // Fetch repositories
+          const repos = await fetchUserRepositories(accessToken);
           
           setGithubData({
             repos,
-            contributions,
+            contributions: [],
             username: user.login,
             avatar: user.avatar_url
           });

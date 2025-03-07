@@ -7,12 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  fetchJiraAssignedIssues, 
-  fetchJiraCreatedIssues, 
-  fetchJiraCompletedIssues, 
-  fetchJiraProjects 
+  fetchJiraCreatedIssues,
+  fetchJiraCompletedIssues
 } from "@/lib/atlassian";
-import { Trello, Clock, CheckCircle, AlertCircle, FolderKanban } from "lucide-react";
+import { CheckCircle, AlertCircle, Clock, Trello } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -27,10 +25,8 @@ export function JiraIssuesView() {
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [assignedIssues, setAssignedIssues] = useState<any[]>([]);
   const [createdIssues, setCreatedIssues] = useState<any[]>([]);
   const [completedIssues, setCompletedIssues] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchJiraData = async () => {
@@ -41,17 +37,13 @@ export function JiraIssuesView() {
       
       try {
         // Fetch data in parallel
-        const [assignedData, createdData, completedData, projectsData] = await Promise.all([
-          fetchJiraAssignedIssues(jiraEmail, jiraApiToken, jiraDomain),
+        const [createdData, completedData] = await Promise.all([
           fetchJiraCreatedIssues(jiraEmail, jiraApiToken, jiraDomain),
-          fetchJiraCompletedIssues(jiraEmail, jiraApiToken, jiraDomain),
-          fetchJiraProjects(jiraEmail, jiraApiToken, jiraDomain)
+          fetchJiraCompletedIssues(jiraEmail, jiraApiToken, jiraDomain)
         ]);
         
-        setAssignedIssues(assignedData.issues || []);
         setCreatedIssues(createdData.issues || []);
         setCompletedIssues(completedData.issues || []);
-        setProjects(projectsData.values || []);
       } catch (err) {
         console.error("Error fetching Jira data:", err);
         setError("Failed to fetch Jira data. Please try again later.");
@@ -107,12 +99,8 @@ export function JiraIssuesView() {
 
   return (
     <div className="space-y-8">
-      <Tabs defaultValue="assigned" className="w-full">
-        <TabsList className="w-full max-w-md mx-auto mb-6">
-          <TabsTrigger value="assigned" className="flex items-center gap-2">
-            <Trello className="h-4 w-4" />
-            <span>Assigned</span>
-          </TabsTrigger>
+      <Tabs defaultValue="created" className="w-full">
+        <TabsList className="w-full max-w-xs mx-auto mb-6">
           <TabsTrigger value="created" className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
             <span>Created</span>
@@ -121,35 +109,7 @@ export function JiraIssuesView() {
             <CheckCircle className="h-4 w-4" />
             <span>Completed</span>
           </TabsTrigger>
-          <TabsTrigger value="projects" className="flex items-center gap-2">
-            <FolderKanban className="h-4 w-4" />
-            <span>Projects</span>
-          </TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="assigned" className="mt-0">
-          <Card>
-            <CardHeader>
-              <CardTitle>My Assigned Issues</CardTitle>
-              <CardDescription>
-                Issues currently assigned to you in Jira
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {assignedIssues.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  You don't have any issues assigned to you.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {assignedIssues.map((issue) => (
-                    <IssueCard key={issue.id} issue={issue} domain={jiraDomain!} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
         
         <TabsContent value="created" className="mt-0">
           <Card>
@@ -198,30 +158,6 @@ export function JiraIssuesView() {
             </CardContent>
           </Card>
         </TabsContent>
-        
-        <TabsContent value="projects" className="mt-0">
-          <Card>
-            <CardHeader>
-              <CardTitle>Projects</CardTitle>
-              <CardDescription>
-                Jira projects you have access to
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {projects.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No projects found.
-                </p>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {projects.map((project) => (
-                    <ProjectCard key={project.id} project={project} domain={jiraDomain!} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   );
@@ -263,33 +199,6 @@ function IssueCard({ issue, domain }: { issue: any, domain: string }) {
             <Badge variant="outline">{issue.fields.priority.name}</Badge>
           )}
         </div>
-      </div>
-    </Card>
-  );
-}
-
-function ProjectCard({ project, domain }: { project: any, domain: string }) {
-  return (
-    <Card className="overflow-hidden">
-      <div className="p-4">
-        <h3 className="font-medium">
-          <a 
-            href={`https://${domain}/browse/${project.key}`} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="hover:underline text-primary-600"
-          >
-            {project.name}
-          </a>
-        </h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          {project.key}
-        </p>
-        {project.description && (
-          <p className="text-sm mt-2 line-clamp-2">
-            {project.description}
-          </p>
-        )}
       </div>
     </Card>
   );
