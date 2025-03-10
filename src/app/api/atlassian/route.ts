@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { url, email, apiToken, token, method = 'GET', body: requestBody } = body;
+    const { url, email, apiToken, token, method = 'GET', body: requestBody, isBitbucket = false } = body;
     
     // Check if we have either token or email+apiToken
     if (!url || (!token && (!email || !apiToken))) {
@@ -27,13 +27,27 @@ export async function POST(request: NextRequest) {
       // Bearer token authentication
       headers['Authorization'] = `Bearer ${token}`;
       console.log('Using Bearer token authentication');
+    } else if (isBitbucket || (url.includes('bitbucket.org') && email === 'x-token-auth')) {
+      // Bitbucket app password authentication
+      // For Bitbucket, we use Basic auth with username 'x-token-auth' and the app password as the password
+      const credentials = `${email}:${apiToken}`;
+      const encodedCredentials = Buffer.from(credentials).toString('base64');
+      headers['Authorization'] = `Basic ${encodedCredentials}`;
+      console.log('Using Bitbucket app password authentication');
     } else {
-      // Basic authentication
+      // Standard Basic authentication
       const credentials = `${email}:${apiToken}`;
       const encodedCredentials = Buffer.from(credentials).toString('base64');
       headers['Authorization'] = `Basic ${encodedCredentials}`;
       console.log('Using Basic authentication');
     }
+    
+    console.log('Request headers:', {
+      ...headers,
+      'Authorization': headers['Authorization'] ? 
+        headers['Authorization'].substring(0, 15) + '...' : 
+        'none'
+    });
     
     const fetchOptions: RequestInit = {
       method,
@@ -42,29 +56,29 @@ export async function POST(request: NextRequest) {
     };
     
     try {
+      console.log(`Sending request to ${url} with method ${method}`);
       const response = await fetch(url, fetchOptions);
       
       // Log response status for debugging
       console.log(`Response status: ${response.status} ${response.statusText}`);
       
-      // Handle different response types
-      const contentType = response.headers.get('content-type');
-      let data;
+      // Get response text first
+      const responseText = await response.text();
+      console.log('Response text (first 200 chars):', responseText.substring(0, 200));
       
-      if (contentType && contentType.includes('application/json')) {
-        try {
-          data = await response.json();
-        } catch (e) {
-          console.error('Error parsing JSON response:', e);
-          data = await response.text();
-        }
-      } else {
-        data = await response.text();
-        console.log('Non-JSON response:', data.substring(0, 200) + '...');
+      // Try to parse as JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('Successfully parsed response as JSON');
+      } catch (e) {
+        console.log('Response is not valid JSON, keeping as text');
+        data = responseText;
       }
       
       if (!response.ok) {
         console.error('API error response:', typeof data === 'string' ? data.substring(0, 200) : data);
+        
         return NextResponse.json(
           { 
             error: `API error: ${response.status} ${response.statusText}`,

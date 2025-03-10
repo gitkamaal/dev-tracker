@@ -50,6 +50,21 @@ export function AccountConnections() {
   const logoutJira = auth?.logoutJira || (() => {});
   const jiraLoading = auth?.jiraLoading || false;
   
+  /* Temporarily commented out Bitbucket functionality
+  const isBitbucketAuthenticated = auth?.isBitbucketAuthenticated || false;
+  const bitbucketToken = auth?.bitbucketToken || null;
+  const setBitbucketToken = auth?.setBitbucketToken || (() => {});
+  const logoutBitbucket = auth?.logoutBitbucket || (() => {});
+  const bitbucketLoading = auth?.bitbucketLoading || false;
+  */
+  
+  // Initial connection status
+  const initialConnectionStatus = {
+    /* Temporarily commented out TAF Badges
+    tafbadges: false
+    */
+  };
+  
   const [connections, setConnections] = useState(initialConnectionStatus);
   const [showInfo, setShowInfo] = useState<string | null>(null);
   const [githubData, setGithubData] = useState<any>(null);
@@ -91,12 +106,14 @@ export function AccountConnections() {
     fetchGitHubData();
   }, [isAuthenticated, accessToken, user]);
   
+  /* Temporarily commented out TAF Badges functionality
   const toggleConnection = (platform: keyof typeof connections) => {
     setConnections(prev => ({
       ...prev,
       [platform]: !prev[platform]
     }));
   };
+  */
   
   const handleGitHubConnect = async () => {
     if (!githubToken.trim()) return;
@@ -163,7 +180,9 @@ export function AccountConnections() {
   const platformInfo = {
     github: "Connect your GitHub account to track commits, pull requests, and code reviews.",
     atlassian: "Connect your Atlassian account to track Jira issues, Confluence pages, and Bitbucket repositories.",
+    /* Temporarily commented out
     tafbadges: "Connect your TAF Badges account to track your earned certifications and learning achievements."
+    */
   };
   
   return (
@@ -192,258 +211,345 @@ export function AccountConnections() {
         <div className="space-y-6">
           {/* GitHub Connection */}
           <Card>
-            <CardHeader className="space-y-1">
-              <CardTitle className="flex items-center">
-                <GitHub className="mr-2 h-4 w-4" />
-                GitHub
-              </CardTitle>
-              <CardDescription>
-                Connect to your GitHub account to track your commits, PRs, and issues.
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center gap-4">
+              <GitHub className="w-8 h-8" />
+              <div>
+                <CardTitle>GitHub</CardTitle>
+                <CardDescription>Connect to your GitHub account</CardDescription>
+              </div>
+              {isAuthenticated && (
+                <CheckCircle className="w-6 h-6 ml-auto text-green-500" />
+              )}
+              {!isAuthenticated && !loading && (
+                <XCircle className="w-6 h-6 ml-auto text-red-500" />
+              )}
+              {loading && (
+                <Loader2 className="w-6 h-6 ml-auto animate-spin" />
+              )}
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : isAuthenticated ? (
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <Check className="h-5 w-5 text-green-500" />
-                    <span className="text-sm font-medium">Connected as {user?.login}</span>
-                  </div>
-                  {user?.avatar_url && (
-                    <div className="flex items-center space-x-2">
-                      <img 
-                        src={user.avatar_url} 
-                        alt={`${user.login}'s avatar`} 
-                        className="h-8 w-8 rounded-full"
-                      />
-                      <div>
-                        <p className="text-sm font-medium">{user.name || user.login}</p>
-                        <p className="text-xs text-muted-foreground">{user.email || ''}</p>
-                      </div>
+              {isAuthenticated ? (
+                <div>
+                  <div className="flex items-center mb-4">
+                    <img
+                      src={user?.avatar_url}
+                      alt={user?.login}
+                      className="w-12 h-12 rounded-full mr-4"
+                    />
+                    <div>
+                      <div className="font-medium">{user?.name || user?.login}</div>
+                      <div className="text-sm text-gray-500">@{user?.login}</div>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>Not connected</span>
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="github-token">Personal Access Token</Label>
-                    <div className="flex">
-                      <div className="relative flex-grow">
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    <p className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span>Connected successfully</span>
+                    </p>
+                    <p className="mt-2 text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                      <Info className="h-4 w-4" />
+                      <span>To view your GitHub data, go to the dashboard and select the GitHub tab, then use the filters to display your data.</span>
+                    </p>
+                  </div>
+                  
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    onClick={handleGitHubDisconnect}
+                    disabled={disconnecting}
+                    className="w-full"
+                  >
+                    {disconnecting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Disconnecting...
+                      </>
+                    ) : (
+                      <>
+                        <Unlink className="mr-2 h-4 w-4" />
+                        Disconnect
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <div>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="githubToken">Personal Access Token (PAT)</Label>
+                      <div className="relative">
                         <Input
-                          id="github-token"
+                          id="githubToken"
                           type={showGithubToken ? "text" : "password"}
-                          placeholder="Enter your GitHub personal access token"
+                          placeholder="GitHub Personal Access Token"
                           value={githubToken}
                           onChange={(e) => setGithubToken(e.target.value)}
                         />
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-0 top-0 h-full px-3"
                           onClick={() => setShowGithubToken(!showGithubToken)}
-                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500"
                         >
                           {showGithubToken ? (
                             <EyeOff className="h-4 w-4" />
                           ) : (
                             <Eye className="h-4 w-4" />
                           )}
-                        </button>
+                        </Button>
                       </div>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      <a 
-                        href="https://github.com/settings/tokens" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-primary-600 hover:underline flex items-center"
-                      >
-                        Generate a token <ExternalLink className="h-3 w-3 ml-1" />
-                      </a>
-                      <span className="block mt-1">
-                        Required scopes: repo, user
-                      </span>
+                    
+                    <Button 
+                      onClick={handleGitHubConnect} 
+                      disabled={!githubToken || connectingGithub}
+                      className="w-full"
+                    >
+                      {connectingGithub ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <LinkIcon className="mr-2 h-4 w-4" />
+                          Connect
+                        </>
+                      )}
+                    </Button>
+                    
+                    <p className="text-xs text-gray-500 mt-2">
+                      Requires a GitHub Personal Access Token with<br/> 
+                      <code>repo</code> and <code>read:user</code> scopes.
                     </p>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 w-full text-xs"
+                      onClick={() => window.open('https://github.com/settings/tokens/new', '_blank')}
+                    >
+                      <ExternalLink className="mr-2 h-3 w-3" />
+                      Create a Token
+                    </Button>
                   </div>
                 </div>
               )}
             </CardContent>
-            <CardFooter>
-              {isAuthenticated ? (
-                <Button 
-                  variant="outline" 
-                  className="w-full" 
-                  onClick={handleGitHubDisconnect}
-                  disabled={disconnecting}
-                >
-                  {disconnecting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Disconnecting...
-                    </>
-                  ) : (
-                    'Disconnect'
-                  )}
-                </Button>
-              ) : (
-                <Button 
-                  className="w-full" 
-                  onClick={handleGitHubConnect}
-                  disabled={connectingGithub || !githubToken.trim()}
-                >
-                  {connectingGithub ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    'Connect GitHub'
-                  )}
-                </Button>
-              )}
-            </CardFooter>
           </Card>
           
           {/* Atlassian Connection */}
           <Card>
-            <CardHeader className="space-y-1">
-              <CardTitle className="flex items-center">
-                <Trello className="mr-2 h-4 w-4" />
-                Atlassian
-              </CardTitle>
-              <CardDescription>
-                Connect to your Atlassian account to track Jira issues, Confluence pages, and Bitbucket repositories.
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center gap-4">
+              <Trello className="w-8 h-8" />
+              <div>
+                <CardTitle>Atlassian (Jira)</CardTitle>
+                <CardDescription>Connect to your Atlassian account</CardDescription>
+              </div>
+              {isJiraAuthenticated && (
+                <CheckCircle className="w-6 h-6 ml-auto text-green-500" />
+              )}
+              {!isJiraAuthenticated && !jiraLoading && (
+                <XCircle className="w-6 h-6 ml-auto text-red-500" />
+              )}
+              {jiraLoading && (
+                <Loader2 className="w-6 h-6 ml-auto animate-spin" />
+              )}
             </CardHeader>
             <CardContent>
-              {jiraLoading ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : isJiraAuthenticated ? (
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span className="font-medium">Connected as</span>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    {jiraUser && (
-                      <>
-                        <p className="font-medium">{jiraUser.displayName}</p>
-                        <p className="text-sm text-muted-foreground">{jiraEmail}</p>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>Not connected</span>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="atlassian-email">Email</Label>
-                    <Input
-                      id="atlassian-email"
-                      type="email"
-                      placeholder="your.email@example.com"
-                      value={atlassianEmail}
-                      onChange={(e) => setAtlassianEmail(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="atlassian-token">API Token</Label>
-                    <div className="relative">
-                      <Input
-                        id="atlassian-token"
-                        type={showAtlassianToken ? "text" : "password"}
-                        placeholder="Enter your Atlassian API token"
-                        value={atlassianApiToken}
-                        onChange={(e) => setAtlassianApiToken(e.target.value)}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowAtlassianToken(!showAtlassianToken)}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500"
-                      >
-                        {showAtlassianToken ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
+              {isJiraAuthenticated ? (
+                <div>
+                  <div className="flex items-center mb-4">
+                    <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mr-4">
+                      <Trello className="w-8 h-8 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      <a
-                        href="https://id.atlassian.com/manage-profile/security/api-tokens"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary-600 hover:underline flex items-center"
-                      >
-                        Create an API token <ExternalLink className="h-3 w-3 ml-1" />
-                      </a>
+                    <div>
+                      <div className="font-medium">{jiraUser?.displayName}</div>
+                      <div className="text-sm text-gray-500">{jiraUser?.emailAddress}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    <p className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span>Connected to domain: <strong>{jiraDomain}</strong></span>
+                    </p>
+                    <p className="mt-2 text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                      <Info className="h-4 w-4" />
+                      <span>To view your Jira data, go to the dashboard and select the Jira tab, then use the filters to display your issues.</span>
                     </p>
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="atlassian-domain">Domain</Label>
-                    <Input
-                      id="atlassian-domain"
-                      type="text"
-                      placeholder="yourcompany.atlassian.net"
-                      value={atlassianDomain}
-                      onChange={(e) => setAtlassianDomain(e.target.value)}
-                    />
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    onClick={handleJiraDisconnect}
+                    disabled={jiraDisconnecting}
+                    className="w-full"
+                  >
+                    {jiraDisconnecting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Disconnecting...
+                      </>
+                    ) : (
+                      <>
+                        <Unlink className="mr-2 h-4 w-4" />
+                        Disconnect
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <div>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="atlassian-email">Email</Label>
+                      <Input
+                        id="atlassian-email"
+                        type="email"
+                        placeholder="your.email@example.com"
+                        value={atlassianEmail}
+                        onChange={(e) => setAtlassianEmail(e.target.value)}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="atlassian-token">API Token</Label>
+                      <div className="relative">
+                        <Input
+                          id="atlassian-token"
+                          type={showAtlassianToken ? "text" : "password"}
+                          placeholder="Enter your Atlassian API token"
+                          value={atlassianApiToken}
+                          onChange={(e) => setAtlassianApiToken(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowAtlassianToken(!showAtlassianToken)}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500"
+                        >
+                          {showAtlassianToken ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        <a
+                          href="https://id.atlassian.com/manage-profile/security/api-tokens"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary-600 hover:underline flex items-center"
+                        >
+                          Create an API token <ExternalLink className="h-3 w-3 ml-1" />
+                        </a>
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="atlassian-domain">Domain</Label>
+                      <Input
+                        id="atlassian-domain"
+                        type="text"
+                        placeholder="yourcompany.atlassian.net"
+                        value={atlassianDomain}
+                        onChange={(e) => setAtlassianDomain(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    onClick={handleJiraConnect} 
+                    disabled={!atlassianEmail || !atlassianApiToken || !atlassianDomain || connectingJira}
+                    className="w-full"
+                  >
+                    {connectingJira ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        <LinkIcon className="mr-2 h-4 w-4" />
+                        Connect
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* Temporarily commented out Bitbucket functionality
+          <Card>
+            <CardHeader className="flex flex-row items-center gap-4">
+              <Backpack className="w-8 h-8" />
+              <div>
+                <CardTitle>Bitbucket</CardTitle>
+                <CardDescription>Connect to your Bitbucket account</CardDescription>
+              </div>
+              {isBitbucketAuthenticated && (
+                <CheckCircle className="w-6 h-6 ml-auto text-green-500" />
+              )}
+              {!isBitbucketAuthenticated && !bitbucketLoading && (
+                <XCircle className="w-6 h-6 ml-auto text-red-500" />
+              )}
+              {bitbucketLoading && (
+                <Loader2 className="w-6 h-6 ml-auto animate-spin" />
+              )}
+            </CardHeader>
+            <CardContent>
+              {isBitbucketAuthenticated ? (
+                <div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    <p className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span>Connected successfully</span>
+                    </p>
+                  </div>
+                  
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    onClick={() => setBitbucketToken(null)}
+                    className="w-full"
+                  >
+                    <Unlink className="mr-2 h-4 w-4" />
+                    Disconnect Bitbucket
+                  </Button>
+                </div>
+              ) : (
+                <div>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="bitbucket-token">API Token</Label>
+                      <Input
+                        id="bitbucket-token"
+                        type="password"
+                        placeholder="Enter your Bitbucket API token"
+                      />
+                    </div>
+                    
+                    <Button 
+                      onClick={() => setBitbucketToken(null)}
+                      className="w-full"
+                    >
+                      <LinkIcon className="mr-2 h-4 w-4" />
+                      Connect Bitbucket
+                    </Button>
                   </div>
                 </div>
               )}
             </CardContent>
-            <CardFooter>
-              {isJiraAuthenticated ? (
-                <Button 
-                  variant="outline" 
-                  className="w-full" 
-                  onClick={handleJiraDisconnect}
-                  disabled={jiraDisconnecting}
-                >
-                  {jiraDisconnecting ? (
-                    <>
-                      <Loader className="mr-2 h-4 w-4 animate-spin" />
-                      Disconnecting...
-                    </>
-                  ) : (
-                    'Disconnect'
-                  )}
-                </Button>
-              ) : (
-                <Button 
-                  className="w-full" 
-                  onClick={handleJiraConnect}
-                  disabled={!atlassianEmail || !atlassianApiToken || !atlassianDomain || connectingJira}
-                >
-                  {connectingJira ? (
-                    <>
-                      <Loader className="mr-2 h-4 w-4 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    'Connect Atlassian'
-                  )}
-                </Button>
-              )}
-            </CardFooter>
           </Card>
+          */}
           
-          {/* TAF Badges Connection */}
+          {/* Temporarily commented out TAF Badges Connection */}
+          {/* 
           <Card>
             <CardHeader className="space-y-1">
               <CardTitle className="flex items-center">
@@ -485,6 +591,7 @@ export function AccountConnections() {
               </Button>
             </CardFooter>
           </Card>
+          */}
         </div>
       </CardContent>
     </Card>

@@ -10,7 +10,7 @@ import {
   fetchJiraCreatedIssues,
   fetchJiraCompletedIssues
 } from "@/lib/atlassian";
-import { CheckCircle, AlertCircle, Clock, Trello } from "lucide-react";
+import { CheckCircle, AlertCircle, Clock, Trello, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { FilterControls, FilterOptions } from "@/components/filter-controls";
@@ -53,17 +53,49 @@ export function JiraIssuesView() {
 
   // Initial data fetch - removed to not show items until filters are applied
   useEffect(() => {
-    if (!isJiraAuthenticated || !jiraEmail || !jiraApiToken || !jiraDomain) {
+    const initializeAuth = async () => {
+      // If not authenticated or missing credentials, just set loading to false
+      if (!isJiraAuthenticated || !jiraEmail || !jiraApiToken || !jiraDomain) {
+        setInitialLoading(false);
+        return;
+      }
+      
+      // Only validate on initial mount, not on every hot reload
+      const shouldValidate = !createdFiltersApplied && !completedFiltersApplied;
+      
+      // If we have credentials but they might be stale, validate them first
+      if (shouldValidate && auth?.validateJiraCredentials) {
+        try {
+          console.log("Validating Jira credentials on component mount...");
+          const isValid = await auth.validateJiraCredentials();
+          
+          if (!isValid) {
+            console.error("Jira credentials validation failed on component mount");
+            setError("Your Jira authentication appears to be invalid. Try disconnecting and reconnecting in the Connections page.");
+          }
+        } catch (err) {
+          console.error("Error validating Jira credentials:", err);
+        }
+      }
+      
+      // Set loading to false regardless of validation result
       setInitialLoading(false);
-      return;
-    }
+    };
     
-    // Just set loading to false, don't fetch any data initially
-    setInitialLoading(false);
-  }, [isJiraAuthenticated, jiraEmail, jiraApiToken, jiraDomain]);
+    initializeAuth();
+  }, [isJiraAuthenticated, jiraEmail, jiraApiToken, jiraDomain, auth, createdFiltersApplied, completedFiltersApplied]);
 
   // Handle created issues search
   const handleCreatedSearch = async (filters: FilterOptions) => {
+    // First validate the credentials
+    if (auth?.validateJiraCredentials) {
+      const isValid = await auth.validateJiraCredentials();
+      if (!isValid) {
+        setError("Your Jira authentication appears to be invalid. Try disconnecting and reconnecting in the Connections page.");
+        return;
+      }
+    }
+    
     if (!isJiraAuthenticated || !jiraEmail || !jiraApiToken || !jiraDomain) return;
     
     setLoading(true);
@@ -96,6 +128,15 @@ export function JiraIssuesView() {
   
   // Handle completed issues search
   const handleCompletedSearch = async (filters: FilterOptions) => {
+    // First validate the credentials
+    if (auth?.validateJiraCredentials) {
+      const isValid = await auth.validateJiraCredentials();
+      if (!isValid) {
+        setError("Your Jira authentication appears to be invalid. Try disconnecting and reconnecting in the Connections page.");
+        return;
+      }
+    }
+    
     if (!isJiraAuthenticated || !jiraEmail || !jiraApiToken || !jiraDomain) return;
     
     setLoading(true);
@@ -128,6 +169,15 @@ export function JiraIssuesView() {
   
   // Handle created issues page change
   const handleCreatedPageChange = async (page: number) => {
+    // First validate the credentials
+    if (auth?.validateJiraCredentials) {
+      const isValid = await auth.validateJiraCredentials();
+      if (!isValid) {
+        setError("Your Jira authentication appears to be invalid. Try disconnecting and reconnecting in the Connections page.");
+        return;
+      }
+    }
+
     if (!isJiraAuthenticated || !jiraEmail || !jiraApiToken || !jiraDomain) return;
     
     setLoading(true);
@@ -156,6 +206,15 @@ export function JiraIssuesView() {
   
   // Handle completed issues page change
   const handleCompletedPageChange = async (page: number) => {
+    // First validate the credentials
+    if (auth?.validateJiraCredentials) {
+      const isValid = await auth.validateJiraCredentials();
+      if (!isValid) {
+        setError("Your Jira authentication appears to be invalid. Try disconnecting and reconnecting in the Connections page.");
+        return;
+      }
+    }
+
     if (!isJiraAuthenticated || !jiraEmail || !jiraApiToken || !jiraDomain) return;
     
     setLoading(true);
@@ -218,7 +277,24 @@ export function JiraIssuesView() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">{error}</p>
+          <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <AlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Authentication Error</h3>
+                <p className="text-sm text-red-700 dark:text-red-300 mt-2">{error}</p>
+                <div className="mt-4">
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/connections">
+                      Go to Connections Page
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
     );
@@ -268,9 +344,21 @@ export function JiraIssuesView() {
               )}
               
               {!loading && !createdFiltersApplied && (
-                <p className="text-center text-muted-foreground py-8">
-                  Select a date range and click "Apply Filter" to see issues.
-                </p>
+                <div className="rounded-md bg-blue-50 dark:bg-blue-900/20 p-4 mb-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <Info className="h-5 w-5 text-blue-400" aria-hidden="true" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">No data displayed yet</h3>
+                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
+                        You're connected to Jira, but you need to use the filter controls above to display your created issues.
+                        <br />
+                        Try selecting a date range and clicking "Apply Filters" to see your data.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
               
               {!loading && createdFiltersApplied && createdIssues.length === 0 && (
@@ -332,9 +420,21 @@ export function JiraIssuesView() {
               )}
               
               {!loading && !completedFiltersApplied && (
-                <p className="text-center text-muted-foreground py-8">
-                  Select a date range and click "Apply Filter" to see issues.
-                </p>
+                <div className="rounded-md bg-blue-50 dark:bg-blue-900/20 p-4 mb-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <Info className="h-5 w-5 text-blue-400" aria-hidden="true" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">No data displayed yet</h3>
+                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
+                        You're connected to Jira, but you need to use the filter controls above to display your completed issues.
+                        <br />
+                        Try selecting a date range and clicking "Apply Filters" to see your data.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
               
               {!loading && completedFiltersApplied && completedIssues.length === 0 && (

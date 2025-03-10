@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchUserPullRequests, fetchUserCommits } from "@/lib/github";
-import { Github, GitPullRequest, GitFork, AlertCircle, GitCommit } from "lucide-react";
+import { Github, GitPullRequest, GitFork, AlertCircle, GitCommit, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { FilterControls, FilterOptions } from "@/components/filter-controls";
@@ -48,18 +48,51 @@ export function GitHubView() {
 
   // Initial data fetch - removed to not show items until filters are applied
   useEffect(() => {
-    if (!isAuthenticated || !accessToken) {
+    const initializeAuth = async () => {
+      // If not authenticated or no access token, just set loading to false
+      if (!isAuthenticated || !accessToken) {
+        setInitialLoading(false);
+        return;
+      }
+      
+      // Only validate on initial mount, not on every hot reload
+      const shouldValidate = !prFiltersApplied && !commitFiltersApplied;
+      
+      // If we have a token but it might be stale, validate it first
+      if (shouldValidate && auth?.validateGitHubToken) {
+        try {
+          console.log("Validating GitHub token on component mount...");
+          const isValid = await auth.validateGitHubToken();
+          
+          if (!isValid) {
+            console.error("GitHub token validation failed on component mount");
+            setError("Your GitHub authentication appears to be invalid. Try disconnecting and reconnecting in the Connections page.");
+          }
+        } catch (err) {
+          console.error("Error validating GitHub token:", err);
+        }
+      }
+      
+      // Set loading to false regardless of validation result
       setInitialLoading(false);
-      return;
-    }
+    };
     
-    // Just set loading to false, don't fetch any data initially
-    setInitialLoading(false);
-  }, [isAuthenticated, accessToken]);
+    initializeAuth();
+  }, [isAuthenticated, accessToken, auth, prFiltersApplied, commitFiltersApplied]);
 
   // Handle pull requests search
   const handlePrSearch = async (filters: FilterOptions) => {
     console.log("GitHub PR search triggered with filters:", filters);
+    
+    // First validate the token
+    if (auth?.validateGitHubToken) {
+      const isValid = await auth.validateGitHubToken();
+      if (!isValid) {
+        setError("Your GitHub authentication appears to be invalid. Try disconnecting and reconnecting in the Connections page.");
+        return;
+      }
+    }
+    
     if (!isAuthenticated || !accessToken) return;
     
     setLoading(true);
@@ -93,6 +126,16 @@ export function GitHubView() {
   // Handle commits search
   const handleCommitSearch = async (filters: FilterOptions) => {
     console.log("GitHub commit search triggered with filters:", filters);
+    
+    // First validate the token
+    if (auth?.validateGitHubToken) {
+      const isValid = await auth.validateGitHubToken();
+      if (!isValid) {
+        setError("Your GitHub authentication appears to be invalid. Try disconnecting and reconnecting in the Connections page.");
+        return;
+      }
+    }
+    
     if (!isAuthenticated || !accessToken) return;
     
     setLoading(true);
@@ -125,6 +168,15 @@ export function GitHubView() {
   
   // Handle pull requests page change
   const handlePrPageChange = async (page: number) => {
+    // First validate the token
+    if (auth?.validateGitHubToken) {
+      const isValid = await auth.validateGitHubToken();
+      if (!isValid) {
+        setError("Your GitHub authentication appears to be invalid. Try disconnecting and reconnecting in the Connections page.");
+        return;
+      }
+    }
+
     if (!isAuthenticated || !accessToken) return;
     
     setLoading(true);
@@ -151,6 +203,15 @@ export function GitHubView() {
   
   // Handle commits page change
   const handleCommitPageChange = async (page: number) => {
+    // First validate the token
+    if (auth?.validateGitHubToken) {
+      const isValid = await auth.validateGitHubToken();
+      if (!isValid) {
+        setError("Your GitHub authentication appears to be invalid. Try disconnecting and reconnecting in the Connections page.");
+        return;
+      }
+    }
+
     if (!isAuthenticated || !accessToken) return;
     
     setLoading(true);
@@ -211,7 +272,24 @@ export function GitHubView() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">{error}</p>
+          <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <AlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Authentication Error</h3>
+                <p className="text-sm text-red-700 dark:text-red-300 mt-2">{error}</p>
+                <div className="mt-4">
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/connections">
+                      Go to Connections Page
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
     );
@@ -261,9 +339,21 @@ export function GitHubView() {
               )}
               
               {!loading && !prFiltersApplied && (
-                <p className="text-center text-muted-foreground py-8">
-                  Select a date range and click "Apply Filter" to see pull requests.
-                </p>
+                <div className="rounded-md bg-blue-50 dark:bg-blue-900/20 p-4 mb-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <Info className="h-5 w-5 text-blue-400" aria-hidden="true" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">No data displayed yet</h3>
+                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
+                        You're connected to GitHub, but you need to use the filter controls above to display your pull requests.
+                        <br />
+                        Try selecting a date range and clicking "Apply Filters" to see your data.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
               
               {!loading && prFiltersApplied && pullRequests.length === 0 && (
@@ -325,9 +415,21 @@ export function GitHubView() {
               )}
               
               {!loading && !commitFiltersApplied && (
-                <p className="text-center text-muted-foreground py-8">
-                  Select a date range and click "Apply Filter" to see commits.
-                </p>
+                <div className="rounded-md bg-blue-50 dark:bg-blue-900/20 p-4 mb-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <Info className="h-5 w-5 text-blue-400" aria-hidden="true" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">No data displayed yet</h3>
+                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
+                        You're connected to GitHub, but you need to use the filter controls above to display your commits.
+                        <br />
+                        Try selecting a date range and clicking "Apply Filters" to see your data.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
               
               {!loading && commitFiltersApplied && commits.length === 0 && (

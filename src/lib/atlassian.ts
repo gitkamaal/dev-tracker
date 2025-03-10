@@ -76,7 +76,14 @@ async function makeProxyRequest(url: string, email: string, apiToken: string, me
 async function makeProxyRequestWithToken(url: string, token: string, method: string = 'GET', body?: any) {
   console.log(`Making proxy request with token to: ${url}`);
   
+  if (!token) {
+    console.error("No token provided for API request");
+    throw new Error("Authentication token is required");
+  }
+  
   try {
+    console.log(`Sending request to proxy with token: ${token.substring(0, 5)}...`);
+    
     const response = await fetch('/api/atlassian', {
       method: 'POST',
       headers: {
@@ -91,11 +98,25 @@ async function makeProxyRequestWithToken(url: string, token: string, method: str
     });
     
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      
+      try {
+        // Try to parse the error as JSON
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error || errorData.message || errorMessage;
+        console.error("API error response:", errorData);
+      } catch (e) {
+        // If not JSON, use the raw text
+        console.error("API error response (raw):", errorText);
+      }
+      
+      throw new Error(errorMessage);
     }
     
-    return await response.json();
+    const data = await response.json();
+    console.log("API response received successfully");
+    return data;
   } catch (error) {
     console.error("Proxy request failed:", error);
     throw error;
@@ -318,18 +339,251 @@ export async function fetchConfluencePages(email: string, apiToken: string, doma
 // ===== BITBUCKET API FUNCTIONS =====
 
 /**
+ * Fetch Bitbucket workspaces the user has access to
+ */
+export async function fetchBitbucketWorkspaces(token: string) {
+  try {
+    console.log("Fetching Bitbucket workspaces with token");
+    const url = `https://api.bitbucket.org/2.0/workspaces`;
+    
+    // For Bitbucket, we need to use a different authentication method
+    // The token is used as an app password with the username 'x-token-auth'
+    return await makeProxyRequestWithAppPassword(url, token);
+  } catch (error) {
+    console.error("Error fetching Bitbucket workspaces:", error);
+    throw error;
+  }
+}
+
+/**
+ * Helper function to make API requests through our proxy with Bitbucket app password
+ * Bitbucket uses a different authentication method than other Atlassian products
+ */
+async function makeProxyRequestWithAppPassword(url: string, appPassword: string, method: string = 'GET', body?: any) {
+  console.log(`Making Bitbucket request with app password to: ${url}`);
+  
+  if (!appPassword) {
+    console.error("No app password provided for Bitbucket API request");
+    throw new Error("Bitbucket app password is required");
+  }
+  
+  try {
+    console.log(`Sending request to proxy with app password: ${appPassword.substring(0, 5)}...`);
+    
+    // For Bitbucket, we use Basic auth with username 'x-token-auth' and the app password as the password
+    // This is the recommended approach for Bitbucket Cloud API
+    // See: https://developer.atlassian.com/cloud/bitbucket/rest/intro/#authentication
+    const response = await fetch('/api/atlassian', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url,
+        email: 'x-token-auth', // Special username for Bitbucket app passwords
+        apiToken: appPassword, // Use the app password as the API token
+        method,
+        body,
+        isBitbucket: true, // Flag to indicate this is a Bitbucket request
+      }),
+    });
+    
+    // Handle response
+    let responseData;
+    try {
+      responseData = await response.json();
+    } catch (e) {
+      console.error("Error parsing response:", e);
+      const text = await response.text();
+      throw new Error(`Invalid JSON response: ${text}`);
+    }
+    
+    if (!response.ok) {
+      console.error("API error response:", responseData);
+      throw new Error(responseData.error || `HTTP error! status: ${response.status}`);
+    }
+    
+    console.log("Bitbucket API response received successfully");
+    return responseData;
+  } catch (error) {
+    console.error("Bitbucket proxy request failed:", error);
+    throw error;
+  }
+}
+
+/**
  * Fetch Bitbucket repositories the user has access to
  */
-export async function fetchBitbucketRepositories(email: string, apiToken: string, domain: string) {
+export async function fetchBitbucketRepositories(
+  token: string, 
+  workspace: string = '',
+  page: number = 1,
+  pageSize: number = 10
+) {
   try {
-    // For Bitbucket Cloud
-    const url = `https://api.bitbucket.org/2.0/repositories?role=member`;
+    let url = `https://api.bitbucket.org/2.0/repositories`;
     
-    return await makeProxyRequest(url, email, apiToken);
+    if (workspace) {
+      url = `https://api.bitbucket.org/2.0/repositories/${workspace}`;
+    }
+    
+    // Add pagination
+    url += `?page=${page}&pagelen=${pageSize}`;
+    
+    return await makeProxyRequestWithAppPassword(url, token);
   } catch (error) {
     console.error("Error fetching Bitbucket repositories:", error);
     throw error;
   }
+}
+
+/**
+ * Fetch Bitbucket pull requests
+ */
+export async function fetchBitbucketPullRequests(
+  token: string,
+  workspace: string,
+  repository: string = '',
+  state: string = 'OPEN',
+  fromDate?: Date,
+  toDate?: Date,
+  page: number = 1,
+  pageSize: number = 10
+) {
+  try {
+    let url;
+    
+    if (repository) {
+      // If repository is specified, get PRs for that specific repo
+      url = `https://api.bitbucket.org/2.0/repositories/${workspace}/${repository}/pullrequests`;
+    } else {
+      // Otherwise, get all PRs for the workspace
+      // Note: Bitbucket API doesn't have a direct endpoint for all PRs in a workspace
+      // This is a limitation we'll need to handle in the UI
+      url = `https://api.bitbucket.org/2.0/pullrequests/${workspace}`;
+    }
+    
+    // Add state filter
+    url += `?state=${state}`;
+    
+    // Add date filters if provided
+    if (fromDate) {
+      const fromDateStr = fromDate.toISOString().split('T')[0];
+      url += `&q=created_on>=${fromDateStr}`;
+    }
+    
+    if (toDate) {
+      const toDateStr = toDate.toISOString().split('T')[0];
+      url += `${fromDate ? '+AND+' : '&q='}created_on<=${toDateStr}`;
+    }
+    
+    // Add pagination
+    url += `&page=${page}&pagelen=${pageSize}`;
+    
+    return await makeProxyRequestWithAppPassword(url, token);
+  } catch (error) {
+    console.error("Error fetching Bitbucket pull requests:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch Bitbucket commits
+ */
+export async function fetchBitbucketCommits(
+  token: string,
+  workspace: string,
+  repository: string,
+  fromDate?: Date,
+  toDate?: Date,
+  page: number = 1,
+  pageSize: number = 10
+) {
+  try {
+    // Bitbucket requires a specific repository for commits
+    if (!repository) {
+      throw new Error("Repository is required to fetch commits");
+    }
+    
+    let url = `https://api.bitbucket.org/2.0/repositories/${workspace}/${repository}/commits`;
+    
+    // Add date filters if provided
+    if (fromDate) {
+      const fromDateStr = fromDate.toISOString().split('T')[0];
+      url += `?q=date>=${fromDateStr}`;
+    }
+    
+    if (toDate) {
+      const toDateStr = toDate.toISOString().split('T')[0];
+      url += `${fromDate ? '+AND+' : '?q='}date<=${toDateStr}`;
+    }
+    
+    // Add pagination
+    url += `${(fromDate || toDate) ? '&' : '?'}page=${page}&pagelen=${pageSize}`;
+    
+    return await makeProxyRequestWithAppPassword(url, token);
+  } catch (error) {
+    console.error("Error fetching Bitbucket commits:", error);
+    throw error;
+  }
+}
+
+/**
+ * Formats a Bitbucket repository for display
+ */
+export function formatBitbucketRepo(repo: any): any {
+  return {
+    name: repo.name,
+    slug: repo.slug,
+    description: repo.description || '',
+    created: new Date(repo.created_on).toLocaleDateString(),
+    updated: new Date(repo.updated_on).toLocaleDateString(),
+    language: repo.language || 'Unknown',
+    size: repo.size || 0,
+    url: repo.links?.html?.href || '',
+    workspace: repo.workspace?.slug || repo.workspace?.name || '',
+    isPrivate: repo.is_private || false,
+    mainBranch: repo.mainbranch?.name || 'master',
+    owner: repo.owner?.display_name || 'Unknown',
+  };
+}
+
+/**
+ * Formats a Bitbucket pull request for display
+ */
+export function formatBitbucketPullRequest(pr: any): any {
+  return {
+    id: pr.id,
+    title: pr.title,
+    description: pr.description || '',
+    state: pr.state,
+    created: new Date(pr.created_on).toLocaleDateString(),
+    updated: new Date(pr.updated_on).toLocaleDateString(),
+    author: pr.author?.display_name || 'Unknown',
+    sourceBranch: pr.source?.branch?.name || '',
+    destinationBranch: pr.destination?.branch?.name || '',
+    url: pr.links?.html?.href || '',
+    commentCount: pr.comment_count || 0,
+    repository: pr.destination?.repository?.name || '',
+    repoSlug: pr.destination?.repository?.slug || '',
+    workspace: pr.destination?.repository?.workspace?.slug || '',
+  };
+}
+
+/**
+ * Formats a Bitbucket commit for display
+ */
+export function formatBitbucketCommit(commit: any): any {
+  return {
+    hash: commit.hash,
+    message: commit.message || '',
+    date: new Date(commit.date).toLocaleDateString(),
+    author: commit.author?.user?.display_name || commit.author?.raw || 'Unknown',
+    url: commit.links?.html?.href || '',
+    repository: commit.repository?.name || '',
+    repoSlug: commit.repository?.slug || '',
+    workspace: commit.repository?.workspace?.slug || '',
+  };
 }
 
 /**
@@ -389,74 +643,4 @@ export async function fetchAccessibleResources(accessToken: string): Promise<any
     console.error('Error fetching Atlassian accessible resources:', error);
     throw error;
   }
-}
-
-/**
- * Fetches Bitbucket commits by the user
- */
-export async function fetchBitbucketCommits(accessToken: string, workspaceId: string, repoSlug: string, accountId: string): Promise<any[]> {
-  try {
-    const response = await fetch(
-      `${ATLASSIAN_API_URL}/ex/bitbucket/${workspaceId}/2.0/repositories/${repoSlug}/commits?include=${accountId}&pagelen=50`, 
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      handleApiError(response, 'Bitbucket commits');
-    }
-
-    const data = await response.json();
-    return data.values || [];
-  } catch (error) {
-    console.error('Error fetching Bitbucket commits:', error);
-    throw error;
-  }
-}
-
-/**
- * Fetches Bitbucket pull requests created by the user
- */
-export async function fetchBitbucketPullRequests(accessToken: string, workspaceId: string, accountId: string): Promise<any[]> {
-  try {
-    const response = await fetch(
-      `${ATLASSIAN_API_URL}/ex/bitbucket/${workspaceId}/2.0/pullrequests/${accountId}?pagelen=50`, 
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      handleApiError(response, 'Bitbucket pull requests');
-    }
-
-    const data = await response.json();
-    return data.values || [];
-  } catch (error) {
-    console.error('Error fetching Bitbucket pull requests:', error);
-    throw error;
-  }
-}
-
-/**
- * Formats a Bitbucket repository for display
- */
-export function formatBitbucketRepo(repo: any): any {
-  return {
-    name: repo.name,
-    slug: repo.slug,
-    description: repo.description || '',
-    created: new Date(repo.created_on).toLocaleDateString(),
-    updated: new Date(repo.updated_on).toLocaleDateString(),
-    language: repo.language || 'Unknown',
-    size: repo.size || 0,
-    url: repo.links?.html?.href || '',
-  };
 } 
