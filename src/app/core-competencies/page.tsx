@@ -1,7 +1,5 @@
 import { Navbar } from "@/components/navbar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
 import { Target, BookOpen, Users, MessageSquare, Lightbulb } from "lucide-react"
 
 export default function CoreCompetenciesPage() {
@@ -19,7 +17,6 @@ export default function CoreCompetenciesPage() {
         "Overcome obstacles",
         "Meet commitments"
       ],
-      examples: "Boilerplate example of driving outcomes. This will be replaced with actual content."
     },
     {
       id: 2,
@@ -33,7 +30,6 @@ export default function CoreCompetenciesPage() {
         "Apply best practices",
         "Solve complex problems"
       ],
-      examples: "Boilerplate example of building expertise. This will be replaced with actual content."
     },
     {
       id: 3,
@@ -47,7 +43,6 @@ export default function CoreCompetenciesPage() {
         "Recognize and address bias",
         "Build diverse teams"
       ],
-      examples: "Boilerplate example of cultivating difference. This will be replaced with actual content."
     },
     {
       id: 4,
@@ -61,7 +56,6 @@ export default function CoreCompetenciesPage() {
         "Address issues promptly",
         "Build psychological safety"
       ],
-      examples: "Boilerplate example of being candid. This will be replaced with actual content."
     },
     {
       id: 5,
@@ -75,7 +69,6 @@ export default function CoreCompetenciesPage() {
         "Recognize achievements",
         "Support career development"
       ],
-      examples: "Boilerplate example of developing others. This will be replaced with actual content."
     }
   ];
 
@@ -93,61 +86,6 @@ export default function CoreCompetenciesPage() {
           Use this as a reference when documenting your achievements and planning your growth.
         </p>
         
-        {/* Tabs for competencies */}
-        <Tabs defaultValue={coreCompetencies[0].id.toString()} className="w-full mb-10">
-          <TabsList className="flex bg-gray-100 dark:bg-gray-800 rounded-md mb-8">
-            {coreCompetencies.map((competency) => (
-              <TabsTrigger 
-                key={competency.id} 
-                value={competency.id.toString()}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 data-[state=active]:text-primary-600 dark:data-[state=active]:text-primary-400"
-              >
-                {competency.icon}
-                <span className="hidden sm:inline whitespace-nowrap">{competency.title}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          
-          {coreCompetencies.map((competency) => (
-            <TabsContent key={competency.id} value={competency.id.toString()} className="mt-0">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    {competency.icon}
-                    <div>
-                      <CardTitle className="text-xl">{competency.title}</CardTitle>
-                      <CardDescription className="mt-1">{competency.description}</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-medium mb-3">Key Components</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {competency.keyPoints.map((point, index) => (
-                          <Badge key={index} variant="outline" className="px-3 py-1">
-                            {point}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h3 className="text-lg font-medium mb-3">Example Achievements</h3>
-                      <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md">
-                        <p className="text-muted-foreground">{competency.examples}</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          ))}
-        </Tabs>
-        
-        {/* Card grid view of all competencies */}
-        <h3 className="text-xl font-semibold mb-6">All Competencies</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {coreCompetencies.map((competency) => (
             <Card key={competency.id} className="h-full">
@@ -172,4 +110,4 @@ export default function CoreCompetenciesPage() {
       </main>
     </div>
   )
-} 
+}

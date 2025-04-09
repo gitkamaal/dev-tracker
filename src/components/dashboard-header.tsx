@@ -29,10 +29,10 @@ export function DashboardHeader() {
       </div>
       
       {showWelcomeMessage && (
-        <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 relative pr-10">
+        <Alert className="mb-8 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800/30 relative pr-10">
           <Info className="h-4 w-4 text-blue-500 dark:text-blue-400" />
-          <AlertTitle>Welcome to Dev Tracker</AlertTitle>
-          <AlertDescription>
+          <AlertTitle>Welcome to BragBot</AlertTitle>
+          <AlertDescription className="text-blue-700 dark:text-blue-300">
             To view your development activity, first connect to your accounts in the Connections page, 
             then use the filters in each tab to display your data. Data will only appear after applying filters.
           </AlertDescription>

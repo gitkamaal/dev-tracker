@@ -12,13 +12,12 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { FilterControls, FilterOptions } from "@/components/filter-controls";
 import { PaginationControls } from "@/components/pagination-controls";
+import { DateRange } from "react-day-picker";
 
 export function GitHubView() {
   const auth = useAuth();
   
   // Safely access auth context properties
-  const isAuthenticated = auth?.isAuthenticated || false;
-  const user = auth?.user || null;
   const accessToken = auth?.accessToken || null;
   
   const [loading, setLoading] = useState(false);
@@ -49,8 +48,8 @@ export function GitHubView() {
   // Initial data fetch - removed to not show items until filters are applied
   useEffect(() => {
     const initializeAuth = async () => {
-      // If not authenticated or no access token, just set loading to false
-      if (!isAuthenticated || !accessToken) {
+      // If no access token, just set loading to false
+      if (!accessToken) {
         setInitialLoading(false);
         return;
       }
@@ -59,14 +58,15 @@ export function GitHubView() {
       const shouldValidate = !prFiltersApplied && !commitFiltersApplied;
       
       // If we have a token but it might be stale, validate it first
-      if (shouldValidate && auth?.validateGitHubToken) {
+      if (shouldValidate) {
         try {
           console.log("Validating GitHub token on component mount...");
-          const isValid = await auth.validateGitHubToken();
+          // Simple token validation check
+          const isValid = !!accessToken;
           
           if (!isValid) {
             console.error("GitHub token validation failed on component mount");
-            setError("Your GitHub authentication appears to be invalid. Try disconnecting and reconnecting in the Connections page.");
+            setError("Your GitHub authentication appears to be invalid. Try reconnecting in the Connections page.");
           }
         } catch (err) {
           console.error("Error validating GitHub token:", err);
@@ -78,389 +78,398 @@ export function GitHubView() {
     };
     
     initializeAuth();
-  }, [isAuthenticated, accessToken, auth, prFiltersApplied, commitFiltersApplied]);
+  }, [accessToken, prFiltersApplied, commitFiltersApplied]);
 
   // Handle pull requests search
   const handlePrSearch = async (filters: FilterOptions) => {
     console.log("GitHub PR search triggered with filters:", filters);
     
-    // First validate the token
-    if (auth?.validateGitHubToken) {
-      const isValid = await auth.validateGitHubToken();
-      if (!isValid) {
-        setError("Your GitHub authentication appears to be invalid. Try disconnecting and reconnecting in the Connections page.");
-        return;
-      }
+    // Simple token validation check
+    const isValid = !!accessToken;
+    if (!isValid) {
+      setError("Your GitHub authentication appears to be invalid. Try reconnecting in the Connections page.");
+      return;
     }
     
-    if (!isAuthenticated || !accessToken) return;
+    if (!accessToken) return;
     
     setLoading(true);
     setError(null);
     setPrFilters(filters);
     setPrCurrentPage(1); // Reset to first page on new search
-    setPrFiltersApplied(true); // Mark that filters have been applied
     
     try {
-      console.log("Fetching PRs with:", { accessToken, from: filters.dateRange?.from, to: filters.dateRange?.to });
-      const prsData = await fetchUserPullRequests(
+      // Extract start and end dates from filters
+      let startDate: Date | undefined = undefined;
+      let endDate: Date | undefined = undefined;
+      
+      if (filters.dateRange) {
+        const range = filters.dateRange as DateRange;
+        if (range.from) {
+          startDate = range.from;
+        }
+        if (range.to) {
+          endDate = range.to;
+        }
+      }
+      
+      console.log("Fetching pull requests with dates:", { startDate, endDate });
+      const result = await fetchUserPullRequests(
         accessToken,
-        filters.dateRange?.from,
-        filters.dateRange?.to,
-        1,
-        PAGE_SIZE
+        startDate,
+        endDate,
+        1, // Start at page 1
+        100 // Get up to 100 results
       );
       
-      console.log("PR data received:", prsData);
-      setPullRequests(prsData.items || []);
-      setPrTotalItems(prsData.total_count || 0);
-      setPrTotalPages(Math.ceil((prsData.total_count || 0) / PAGE_SIZE));
+      // Calculate pagination
+      setPullRequests(result.items.slice(0, PAGE_SIZE));
+      setPrTotalItems(result.total_count);
+      setPrTotalPages(Math.max(1, Math.ceil(result.total_count / PAGE_SIZE)));
+      setPrFiltersApplied(true);
     } catch (err) {
-      console.error("Error searching GitHub pull requests:", err);
-      setError("Failed to search pull requests. Please try again later.");
+      console.error("Error fetching pull requests:", err);
+      setError("Failed to fetch pull requests. Please try again.");
+      setPullRequests([]);
+      setPrTotalItems(0);
+      setPrTotalPages(1);
     } finally {
       setLoading(false);
     }
   };
-  
+
   // Handle commits search
   const handleCommitSearch = async (filters: FilterOptions) => {
     console.log("GitHub commit search triggered with filters:", filters);
     
-    // First validate the token
-    if (auth?.validateGitHubToken) {
-      const isValid = await auth.validateGitHubToken();
-      if (!isValid) {
-        setError("Your GitHub authentication appears to be invalid. Try disconnecting and reconnecting in the Connections page.");
-        return;
-      }
+    // Simple token validation check
+    const isValid = !!accessToken;
+    if (!isValid) {
+      setError("Your GitHub authentication appears to be invalid. Try reconnecting in the Connections page.");
+      return;
     }
     
-    if (!isAuthenticated || !accessToken) return;
+    if (!accessToken) return;
     
     setLoading(true);
     setError(null);
     setCommitFilters(filters);
     setCommitCurrentPage(1); // Reset to first page on new search
-    setCommitFiltersApplied(true); // Mark that filters have been applied
     
     try {
-      console.log("Fetching commits with:", { accessToken, from: filters.dateRange?.from, to: filters.dateRange?.to });
-      const commitsData = await fetchUserCommits(
+      // Extract start and end dates from filters
+      let startDate: Date | undefined = undefined;
+      let endDate: Date | undefined = undefined;
+      
+      if (filters.dateRange) {
+        const range = filters.dateRange as DateRange;
+        if (range.from) {
+          startDate = range.from;
+        }
+        if (range.to) {
+          endDate = range.to;
+        }
+      }
+      
+      console.log("Fetching commits with dates:", { startDate, endDate });
+      const result = await fetchUserCommits(
         accessToken,
-        filters.dateRange?.from,
-        filters.dateRange?.to,
-        1,
-        PAGE_SIZE
+        startDate,
+        endDate,
+        1, // Start at page 1
+        100 // Get up to 100 results
       );
       
-      console.log("Commit data received:", commitsData);
-      setCommits(commitsData.items || []);
-      setCommitTotalItems(commitsData.total_count || 0);
-      setCommitTotalPages(Math.ceil((commitsData.total_count || 0) / PAGE_SIZE));
+      // Calculate pagination
+      setCommits(result.items.slice(0, PAGE_SIZE));
+      setCommitTotalItems(result.total_count);
+      setCommitTotalPages(Math.max(1, Math.ceil(result.total_count / PAGE_SIZE)));
+      setCommitFiltersApplied(true);
     } catch (err) {
-      console.error("Error searching GitHub commits:", err);
-      setError("Failed to search commits. Please try again later.");
+      console.error("Error fetching commits:", err);
+      setError("Failed to fetch commits. Please try again.");
+      setCommits([]);
+      setCommitTotalItems(0);
+      setCommitTotalPages(1);
     } finally {
       setLoading(false);
     }
   };
-  
+
   // Handle pull requests page change
   const handlePrPageChange = async (page: number) => {
-    // First validate the token
-    if (auth?.validateGitHubToken) {
-      const isValid = await auth.validateGitHubToken();
-      if (!isValid) {
-        setError("Your GitHub authentication appears to be invalid. Try disconnecting and reconnecting in the Connections page.");
-        return;
-      }
+    // Simple token validation check
+    const isValid = !!accessToken;
+    if (!isValid) {
+      setError("Your GitHub authentication appears to be invalid. Try reconnecting in the Connections page.");
+      return;
     }
-
-    if (!isAuthenticated || !accessToken) return;
+    
+    if (!accessToken) return;
     
     setLoading(true);
-    setError(null);
     setPrCurrentPage(page);
     
     try {
-      const prsData = await fetchUserPullRequests(
+      // Extract start and end dates from filters
+      let startDate: Date | undefined = undefined;
+      let endDate: Date | undefined = undefined;
+      
+      if (prFilters.dateRange) {
+        const range = prFilters.dateRange as DateRange;
+        if (range.from) {
+          startDate = range.from;
+        }
+        if (range.to) {
+          endDate = range.to;
+        }
+      }
+      
+      console.log("Fetching pull requests for page:", page);
+      const result = await fetchUserPullRequests(
         accessToken,
-        prFilters.dateRange?.from,
-        prFilters.dateRange?.to,
+        startDate,
+        endDate,
         page,
         PAGE_SIZE
       );
       
-      setPullRequests(prsData.items || []);
+      setPullRequests(result.items);
+      setPrTotalItems(result.total_count);
+      setPrTotalPages(Math.max(1, Math.ceil(result.total_count / PAGE_SIZE)));
     } catch (err) {
-      console.error("Error fetching GitHub pull requests page:", err);
-      setError("Failed to fetch pull requests page. Please try again later.");
+      console.error("Error fetching pull requests:", err);
+      setError("Failed to fetch pull requests. Please try again.");
     } finally {
       setLoading(false);
     }
   };
-  
+
   // Handle commits page change
   const handleCommitPageChange = async (page: number) => {
-    // First validate the token
-    if (auth?.validateGitHubToken) {
-      const isValid = await auth.validateGitHubToken();
-      if (!isValid) {
-        setError("Your GitHub authentication appears to be invalid. Try disconnecting and reconnecting in the Connections page.");
-        return;
-      }
+    // Simple token validation check
+    const isValid = !!accessToken;
+    if (!isValid) {
+      setError("Your GitHub authentication appears to be invalid. Try reconnecting in the Connections page.");
+      return;
     }
-
-    if (!isAuthenticated || !accessToken) return;
+    
+    if (!accessToken) return;
     
     setLoading(true);
-    setError(null);
     setCommitCurrentPage(page);
     
     try {
-      const commitsData = await fetchUserCommits(
+      // Extract start and end dates from filters
+      let startDate: Date | undefined = undefined;
+      let endDate: Date | undefined = undefined;
+      
+      if (commitFilters.dateRange) {
+        const range = commitFilters.dateRange as DateRange;
+        if (range.from) {
+          startDate = range.from;
+        }
+        if (range.to) {
+          endDate = range.to;
+        }
+      }
+      
+      console.log("Fetching commits for page:", page);
+      const result = await fetchUserCommits(
         accessToken,
-        commitFilters.dateRange?.from,
-        commitFilters.dateRange?.to,
+        startDate,
+        endDate,
         page,
         PAGE_SIZE
       );
       
-      setCommits(commitsData.items || []);
+      setCommits(result.items);
+      setCommitTotalItems(result.total_count);
+      setCommitTotalPages(Math.max(1, Math.ceil(result.total_count / PAGE_SIZE)));
     } catch (err) {
-      console.error("Error fetching GitHub commits page:", err);
-      setError("Failed to fetch commits page. Please try again later.");
+      console.error("Error fetching commits:", err);
+      setError("Failed to fetch commits. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (!isAuthenticated) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>GitHub Integration</CardTitle>
-          <CardDescription>Connect your GitHub account to see your repositories and activity</CardDescription>
-        </CardHeader>
-        <CardContent className="text-center py-8">
-          <div className="flex flex-col items-center justify-center space-y-4">
-            <Github className="h-12 w-12 text-muted-foreground" />
-            <p className="text-muted-foreground">Please connect your GitHub account in the Connections page to view your repositories and activity.</p>
-            <Button asChild variant="outline">
-              <Link href="/connections">
-                Go to Connections
-              </Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (initialLoading) {
-    return <GitHubLoadingSkeleton />;
-  }
-
-  if (error) {
-    return (
-      <Card className="border-red-200">
-        <CardHeader>
-          <CardTitle className="flex items-center text-red-600">
-            <AlertCircle className="mr-2 h-5 w-5" />
-            Error Loading GitHub Data
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <AlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Authentication Error</h3>
-                <p className="text-sm text-red-700 dark:text-red-300 mt-2">{error}</p>
-                <div className="mt-4">
-                  <Button asChild variant="outline" size="sm">
-                    <Link href="/connections">
-                      Go to Connections Page
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <div className="space-y-8">
-      <Tabs defaultValue="pullrequests" className="w-full">
-        <TabsList className="w-full max-w-xs mx-auto mb-6">
-          <TabsTrigger value="pullrequests" className="flex items-center gap-2">
-            <GitPullRequest className="h-4 w-4" />
-            <span>Pull Requests</span>
-          </TabsTrigger>
-          <TabsTrigger value="commits" className="flex items-center gap-2">
-            <GitCommit className="h-4 w-4" />
-            <span>Commits</span>
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="pullrequests" className="mt-0">
-          <Card>
-            <CardHeader>
-              <CardTitle>Pull Requests</CardTitle>
-              <CardDescription>
-                Your open and recently closed pull requests
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FilterControls 
-                onSearch={handlePrSearch} 
-                isLoading={loading} 
-              />
-              
-              {loading && (
-                <div className="space-y-4 mt-4">
-                  {Array(3).fill(0).map((_, i) => (
-                    <div key={i} className="border rounded-lg p-4">
-                      <Skeleton className="h-5 w-full max-w-md mb-2" />
-                      <Skeleton className="h-4 w-32 mb-4" />
-                      <div className="flex space-x-2">
-                        <Skeleton className="h-6 w-16 rounded-full" />
-                        <Skeleton className="h-6 w-20 rounded-full" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {!loading && !prFiltersApplied && (
-                <div className="rounded-md bg-blue-50 dark:bg-blue-900/20 p-4 mb-4">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <Info className="h-5 w-5 text-blue-400" aria-hidden="true" />
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">No data displayed yet</h3>
-                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
-                        You're connected to GitHub, but you need to use the filter controls above to display your pull requests.
-                        <br />
-                        Try selecting a date range and clicking "Apply Filters" to see your data.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {!loading && prFiltersApplied && pullRequests.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">
-                  No pull requests found matching your criteria.
-                </p>
-              )}
-              
-              {!loading && prFiltersApplied && pullRequests.length > 0 && (
-                <>
-                  <div className="space-y-4">
-                    {pullRequests.map((pr) => (
-                      <PullRequestCard key={pr.id} pr={pr} />
-                    ))}
-                  </div>
-                  
-                  <div className="mt-4 text-sm text-muted-foreground text-center">
-                    Showing {pullRequests.length} of {prTotalItems} pull requests
-                  </div>
-                  
-                  <PaginationControls
-                    currentPage={prCurrentPage}
-                    totalPages={prTotalPages}
-                    onPageChange={handlePrPageChange}
+    <div className="space-y-6">
+      {/* Show error if any */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md flex items-start mb-4">
+          <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Error</p>
+            <p className="text-sm">{error}</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Show connection prompt if no token */}
+      {!accessToken && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="bg-gray-100 dark:bg-gray-800 rounded-full p-3 mb-4">
+                <Github className="h-8 w-8 text-primary-500" />
+              </div>
+              <h3 className="text-xl font-medium mb-2">Connect to GitHub</h3>
+              <p className="text-muted-foreground mb-4 max-w-md">
+                Connect your GitHub account to view and track your pull requests and commits.
+              </p>
+              <Link href="/connections">
+                <Button>Connect GitHub Account</Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* Show content if token exists */}
+      {accessToken && (
+        <Tabs defaultValue="pull-requests" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="pull-requests" className="flex items-center gap-2">
+              <GitPullRequest className="h-4 w-4" />
+              <span>Pull Requests</span>
+            </TabsTrigger>
+            <TabsTrigger value="commits" className="flex items-center gap-2">
+              <GitCommit className="h-4 w-4" />
+              <span>Commits</span>
+            </TabsTrigger>
+          </TabsList>
+          
+          {/* Pull Requests Tab */}
+          <TabsContent value="pull-requests">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pull Requests</CardTitle>
+                <CardDescription>
+                  View and track your pull requests across repositories.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {/* Filter controls */}
+                <div className="mb-6">
+                  <FilterControls 
+                    onSearch={handlePrSearch} 
+                    isLoading={loading}
+                    showProjectFilter={true}
                   />
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="commits" className="mt-0">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Commits</CardTitle>
-              <CardDescription>
-                Your recent commits across repositories
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FilterControls 
-                onSearch={handleCommitSearch} 
-                isLoading={loading} 
-              />
-              
-              {loading && (
-                <div className="space-y-4 mt-4">
-                  {Array(3).fill(0).map((_, i) => (
-                    <div key={i} className="border rounded-lg p-4">
-                      <Skeleton className="h-5 w-full max-w-md mb-2" />
-                      <Skeleton className="h-4 w-32 mb-4" />
-                      <div className="flex space-x-2">
-                        <Skeleton className="h-6 w-16 rounded-full" />
-                        <Skeleton className="h-6 w-20 rounded-full" />
-                      </div>
-                    </div>
-                  ))}
                 </div>
-              )}
-              
-              {!loading && !commitFiltersApplied && (
-                <div className="rounded-md bg-blue-50 dark:bg-blue-900/20 p-4 mb-4">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <Info className="h-5 w-5 text-blue-400" aria-hidden="true" />
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">No data displayed yet</h3>
-                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
-                        You're connected to GitHub, but you need to use the filter controls above to display your commits.
-                        <br />
-                        Try selecting a date range and clicking "Apply Filters" to see your data.
-                      </p>
+                
+                {/* Loading skeleton */}
+                {loading && <GitHubLoadingSkeleton />}
+                
+                {/* No filters applied yet message */}
+                {!loading && !prFiltersApplied && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/30 text-blue-700 dark:text-blue-300 px-4 py-3 rounded-md flex items-start">
+                    <Info className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium">Apply filters to view your pull requests</p>
+                      <p className="text-sm">Use the filters above to search for specific pull requests.</p>
                     </div>
                   </div>
-                </div>
-              )}
-              
-              {!loading && commitFiltersApplied && commits.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">
-                  No commits found matching your criteria.
-                </p>
-              )}
-              
-              {!loading && commitFiltersApplied && commits.length > 0 && (
-                <>
-                  <div className="space-y-4">
-                    {commits.map((commit) => (
-                      <CommitCard key={commit.id} commit={commit} />
-                    ))}
-                  </div>
-                  
-                  <div className="mt-4 text-sm text-muted-foreground text-center">
-                    Showing {commits.length} of {commitTotalItems} commits
-                  </div>
-                  
-                  <PaginationControls
-                    currentPage={commitCurrentPage}
-                    totalPages={commitTotalPages}
-                    onPageChange={handleCommitPageChange}
+                )}
+                
+                {/* No PRs found message */}
+                {!loading && prFiltersApplied && pullRequests.length === 0 && (
+                  <p className="text-center text-muted-foreground py-8">
+                    No pull requests found matching your criteria.
+                  </p>
+                )}
+                
+                {/* PRs list */}
+                {!loading && prFiltersApplied && pullRequests.length > 0 && (
+                  <>
+                    <div className="space-y-4">
+                      {pullRequests.map((pr) => (
+                        <PullRequestCard key={pr.id} pr={pr} />
+                      ))}
+                    </div>
+                    
+                    <div className="mt-4 text-sm text-muted-foreground text-center">
+                      Showing {pullRequests.length} of {prTotalItems} pull requests
+                    </div>
+                    
+                    <PaginationControls
+                      currentPage={prCurrentPage}
+                      totalPages={prTotalPages}
+                      onPageChange={handlePrPageChange}
+                    />
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* Commits Tab */}
+          <TabsContent value="commits">
+            <Card>
+              <CardHeader>
+                <CardTitle>Commits</CardTitle>
+                <CardDescription>
+                  View and track your commits across repositories.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {/* Filter controls */}
+                <div className="mb-6">
+                  <FilterControls 
+                    onSearch={handleCommitSearch} 
+                    isLoading={loading}
+                    showProjectFilter={true}
                   />
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                </div>
+                
+                {/* Loading skeleton */}
+                {loading && <GitHubLoadingSkeleton />}
+                
+                {/* No filters applied yet message */}
+                {!loading && !commitFiltersApplied && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/30 text-blue-700 dark:text-blue-300 px-4 py-3 rounded-md flex items-start">
+                    <Info className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium">Apply filters to view your commits</p>
+                      <p className="text-sm">Use the filters above to search for specific commits.</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* No commits found message */}
+                {!loading && commitFiltersApplied && commits.length === 0 && (
+                  <p className="text-center text-muted-foreground py-8">
+                    No commits found matching your criteria.
+                  </p>
+                )}
+                
+                {/* Commits list */}
+                {!loading && commitFiltersApplied && commits.length > 0 && (
+                  <>
+                    <div className="space-y-4">
+                      {commits.map((commit) => (
+                        <CommitCard key={commit.id} commit={commit} />
+                      ))}
+                    </div>
+                    
+                    <div className="mt-4 text-sm text-muted-foreground text-center">
+                      Showing {commits.length} of {commitTotalItems} commits
+                    </div>
+                    
+                    <PaginationControls
+                      currentPage={commitCurrentPage}
+                      totalPages={commitTotalPages}
+                      onPageChange={handleCommitPageChange}
+                    />
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }

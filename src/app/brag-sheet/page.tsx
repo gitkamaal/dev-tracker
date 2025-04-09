@@ -17,12 +17,15 @@ export default function BragSheetPage() {
           These documents help you prepare for performance reviews and highlight your contributions.
         </p>
         
-        <BragSheetList />
-        
-        <div id="generator" className="pt-6">
+        {/* Moved BragSheetGenerator to appear first */}
+        <div id="generator" className="mb-10">
           <BragSheetGenerator />
         </div>
+        
+        {/* Moved BragSheetList below the generator */}
+        <BragSheetList />
+        
       </main>
     </div>
   )
-} 
+}

@@ -15,14 +15,14 @@ type Activity = {
 }
 
 export function ActivityTimeline({ source = "all" }: { source?: "all" | "github" }) {
-  const { isAuthenticated, accessToken, user } = useAuth();
+  const { accessToken } = useAuth();
   const [filter, setFilter] = useState<string>("all");
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchGitHubActivities = async () => {
-      if (!isAuthenticated || !accessToken || !user) {
+      if (!accessToken) {
         // Use empty activities if not authenticated
         setActivities([]);
         return;
@@ -31,7 +31,7 @@ export function ActivityTimeline({ source = "all" }: { source?: "all" | "github"
       setLoading(true);
       try {
         // Fetch recent events from GitHub
-        const response = await fetch(`https://api.github.com/users/${user.login}/events?per_page=20`, {
+        const response = await fetch(`https://api.github.com/user/events?per_page=20`, {
           headers: {
             'Authorization': `token ${accessToken}`,
             'Accept': 'application/vnd.github.v3+json',
@@ -117,7 +117,7 @@ export function ActivityTimeline({ source = "all" }: { source?: "all" | "github"
     };
 
     fetchGitHubActivities();
-  }, [isAuthenticated, accessToken, user]);
+  }, [accessToken]);
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('en-US', {
@@ -176,7 +176,7 @@ export function ActivityTimeline({ source = "all" }: { source?: "all" | "github"
           <div className="py-8 text-center text-gray-500 dark:text-gray-400">
             Loading activities...
           </div>
-        ) : !isAuthenticated ? (
+        ) : !accessToken ? (
           <div className="py-8 text-center text-gray-500 dark:text-gray-400">
             Connect your GitHub account to see your activities
           </div>

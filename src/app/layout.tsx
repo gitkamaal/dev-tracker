@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dev Tracker",
+  title: "BragBot",
   description: "Track your development activities and contributions",
 };
 

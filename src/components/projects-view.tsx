@@ -19,13 +19,13 @@ type Repository = {
 }
 
 export function ProjectsView() {
-  const { isAuthenticated, accessToken, user } = useAuth();
+  const { accessToken } = useAuth();
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchRepositories = async () => {
-      if (!isAuthenticated || !accessToken) {
+      if (!accessToken) {
         return;
       }
 
@@ -52,7 +52,7 @@ export function ProjectsView() {
     };
 
     fetchRepositories();
-  }, [isAuthenticated, accessToken]);
+  }, [accessToken]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -74,7 +74,7 @@ export function ProjectsView() {
           <div className="py-8 text-center text-gray-500 dark:text-gray-400">
             Loading repositories...
           </div>
-        ) : !isAuthenticated ? (
+        ) : !accessToken ? (
           <div className="py-8 text-center text-gray-500 dark:text-gray-400">
             Connect your GitHub account to see your repositories
           </div>
