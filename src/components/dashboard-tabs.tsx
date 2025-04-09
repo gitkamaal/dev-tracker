@@ -12,12 +12,12 @@ export function DashboardTabs() {
   const [activeTab, setActiveTab] = useState("jira-issues");
   
   // Check if we have GitHub token
-  const hasGithubToken = !!auth?.githubAccessToken;
+  const hasGithubToken = !!auth?.accessToken;
   
   // Check if we have Jira token
   const hasJiraToken = !!auth?.jiraApiToken && !!auth?.jiraEmail && !!auth?.jiraDomain;
 
-  const handleTabChange = (tabValue) => {
+  const handleTabChange = (tabValue: string) => {
     setActiveTab(tabValue);
   };
 

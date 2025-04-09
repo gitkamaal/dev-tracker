@@ -36,7 +36,7 @@ export function ConnectionTabs() {
   const [githubError, setGithubError] = useState<string | null>(null);
   const [jiraError, setJiraError] = useState<string | null>(null);
   
-  const handleTabChange = (tabValue) => {
+  const handleTabChange = (tabValue: string) => {
     setActiveTab(tabValue);
   };
 
@@ -216,7 +216,7 @@ export function ConnectionTabs() {
                       href="https://github.com/settings/tokens" 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-red-600 hover:underline flex items-center inline-flex"
+                      className="text-red-600 hover:underline inline-flex items-center"
                     >
                       GitHub Settings <ExternalLink className="h-3 w-3 ml-1" />
                     </a>
@@ -354,7 +354,7 @@ export function ConnectionTabs() {
                       href="https://id.atlassian.com/manage-profile/security/api-tokens" 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-red-600 hover:underline flex items-center inline-flex"
+                      className="text-red-600 hover:underline inline-flex items-center"
                     >
                       Atlassian Account Settings <ExternalLink className="h-3 w-3 ml-1" />
                     </a>
